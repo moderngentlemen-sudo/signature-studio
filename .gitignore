@@ -5,3 +5,4 @@ playwright-report
 .dev-host
 *.local
 .wrangler
+*.tsbuildinfo
