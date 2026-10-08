@@ -1,0 +1,15 @@
+name = "signature-studio-images"
+main = "src/index.ts"
+compatibility_date = "2025-06-01"
+
+# Serve on a domain you own so URLs survive any future storage migration:
+# routes = [{ pattern = "img.your-domain.com", custom_domain = true }]
+
+[[r2_buckets]]
+binding = "IMAGES"
+bucket_name = "signature-studio-images"
+
+[vars]
+ALLOWED_ORIGINS = "https://studio.your-domain.com,http://localhost:5173"
+
+# Secret (never committed): wrangler secret put UPLOAD_KEY
