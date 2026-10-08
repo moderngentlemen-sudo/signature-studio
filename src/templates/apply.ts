@@ -1,3 +1,4 @@
+import { deepClone } from "../lib/clone";
 import { stack } from "../model/factory";
 import { PALETTES, TYPE_PRESETS } from "../model/presets";
 import { cloneWithNewIds, walk } from "../model/tree";
@@ -74,7 +75,7 @@ function plan(project: Project, template: Template) {
       walk(next, ({ node: n }) => {
         if (!slot && n.type === node.type && n.name === node.name) slot = n;
       });
-    if (slot) Object.assign(slot as SigNode, { props: structuredClone(node.props), visibility: node.visibility });
+    if (slot) Object.assign(slot as SigNode, { props: deepClone(node.props), visibility: node.visibility });
     else custom.push(node);
   }
   const byRole = new Map<ImageRole, ImageNode[]>();

@@ -1,6 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Copy, Download, FileJson, FileUp, Image as ImageIcon, Plus, Trash2, FileCode2, History, RotateCcw } from "lucide-react";
-import { toPng } from "html-to-image";
 import { useEditor } from "../../state/store";
 import { Modal, Segmented, TextInput, Toggle } from "../../ui/controls";
 import { localProjects, versionStore, type ProjectSummary, type ProjectVersion } from "../../storage/db";
@@ -242,6 +241,7 @@ export function ExportDialog() {
       await Promise.all(
         Array.from(holder.querySelectorAll("img")).map((img) => (img.complete ? null : new Promise((r) => ((img.onload = r), (img.onerror = r))))),
       );
+      const { toPng } = await import("html-to-image");
       const url = await toPng(holder, { pixelRatio: 2, backgroundColor: "#ffffff", cacheBust: false });
       const blob = await (await fetch(url)).blob();
       downloadFile(`${base}@2x.png`, blob);

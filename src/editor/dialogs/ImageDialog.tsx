@@ -209,7 +209,7 @@ function CropStage({
         }}
       >
         {tint ? (
-          <div style={{ ...pos, background: tint, WebkitMask: `url('${src}') center/100% 100% no-repeat`, mask: `url('${src}') center/100% 100% no-repeat` }} />
+          <div style={{ ...pos, background: tint, WebkitMask: `url(${JSON.stringify(src)}) center/100% 100% no-repeat`, mask: `url(${JSON.stringify(src)}) center/100% 100% no-repeat` }} />
         ) : (
           <img src={src} alt="" draggable={false} style={{ ...pos, maxWidth: "none", userSelect: "none" }} />
         )}

@@ -20,7 +20,7 @@ export async function loadLibrary() {
 }
 
 export async function saveComponent(node: SigNode, name?: string) {
-  const item: SavedComponent = { id: uid("sc"), name: name ?? nodeLabel(node), node: cloneWithNewIds(structuredClone(node)), createdAt: Date.now() };
+  const item: SavedComponent = { id: uid("sc"), name: name ?? nodeLabel(node), node: cloneWithNewIds(node), createdAt: Date.now() };
   const components = [item, ...useLibrary.getState().components];
   useLibrary.setState({ components });
   await libraryStore.saveComponents(components);

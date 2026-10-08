@@ -33,3 +33,19 @@ describe("history", () => {
     expect(useEditor.getState().project!.theme.scale).toBe(before);
   });
 });
+
+describe("edits on drafts", () => {
+  it("duplicates and applies templates inside an undoable edit", async () => {
+    const { duplicateNode } = await import("../model/tree");
+    const { applyTemplate } = await import("../templates/apply");
+    const { TEMPLATE_MAP } = await import("../templates/templates");
+    const { text } = await import("../model/factory");
+    useEditor.getState().load(createProject({ sample: true }));
+    const note = text("Custom note");
+    useEditor.getState().edit((d) => void d.root.children.push(note));
+    useEditor.getState().edit((d) => void duplicateNode(d.root, note.id));
+    expect(JSON.stringify(useEditor.getState().project!.root).match(/Custom note/g)).toHaveLength(2);
+    useEditor.getState().edit((d) => void applyTemplate(d, TEMPLATE_MAP["luxury-maison"], { keepLook: false, keepCustom: true }));
+    expect(JSON.stringify(useEditor.getState().project!.root)).toContain("Custom note");
+  });
+});

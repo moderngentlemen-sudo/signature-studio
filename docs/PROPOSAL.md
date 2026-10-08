@@ -220,10 +220,10 @@ Legend: **P** preserve · **I** improve · **A** missing, add · **N** new recom
 | Design | Auto-Fit to target width with a readable-size floor | I | 2.0 |
 | Design | Overflow and width warnings | A | 2.0 |
 | Design | Gradients and other effects rendered to images | D | Phase 3+ |
-| Templates | 36 templates across 12 categories, search, favourites, recently used | P/I | 2.0 |
+| Templates | 40 templates across 19 categories, search, favourites, recently used | P/I | 2.0 |
 | Templates | Apply a layout while keeping profile, assets, socials and custom blocks, with undo | I | 2.0 |
 | Templates | Profession-based suggestions | N | 2.0 |
-| Components | Library of 28 entries built on 13 node types | P/I | 2.0 |
+| Components | Library of 38 entries built on 13 node types | P/I | 2.0 |
 | Components | Save, reinsert, export and import custom components | P | 2.0 |
 | Components | Profile-connected fields, detach and reattach | I | 2.0 |
 | Identity | Central profile, custom fields, contact layouts, labels, separators | P/I | 2.0 |
@@ -256,7 +256,7 @@ Legend: **P** preserve · **I** improve · **A** missing, add · **N** new recom
 | 0 | This proposal and the decision register | Approved by owner |
 | 1 | Schema, store and history, renderer and validator, persistence, design system, tests | Unit tests green; renderer output passes the validator |
 | 2 | Editor: canvas overlay, selection, inline edit, DnD, resize, layers, inspector, shortcuts | End-to-end tests for editing flows green |
-| 3 | Templates (36), component library, brand kits, saved components, Auto-Fit, checks | All templates render validly in both variants |
+| 3 | Templates (40), component library, brand kits, saved components, Auto-Fit, checks | All templates render validly in both variants |
 | 4 | Image pipeline, host adapter and Worker, readiness, rich copy, Gmail wizard, exports | Verified copy gated on readiness; manual Gmail protocol run |
 | 5 | Accounts, cloud sync, conflicts, cloud revisions, legacy import | Awaiting approval |
 | 6 | Accessibility audit, performance, cross-client screenshots, security review | WCAG 2.2 AA checks pass; no high-severity findings |

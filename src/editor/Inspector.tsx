@@ -537,6 +537,8 @@ function ImageControls({ node }: { node: ImageNode }) {
                   n.props.assetId = a.id;
                   n.props.crop = { x: 0, y: 0, zoom: 1 };
                   if (a.id.startsWith("builtin:")) n.props.tint = n.props.tint ?? "$ink";
+                  // Wide artwork needs more width to stay legible.
+                  if (a.width / a.height > 4 && n.props.width < 160) n.props.width = 180;
                   else n.props.tint = undefined;
                   if (!n.props.alt) n.props.alt = "description" in a ? (a as { description: string }).description : a.name;
                 })
@@ -548,8 +550,8 @@ function ImageControls({ node }: { node: ImageNode }) {
                     width: "100%",
                     height: "60%",
                     background: "#16150f",
-                    WebkitMask: `url(${(a as { url: string }).url}) center/contain no-repeat`,
-                    mask: `url(${(a as { url: string }).url}) center/contain no-repeat`,
+                    WebkitMask: `url(${JSON.stringify((a as { url: string }).url)}) center/contain no-repeat`,
+                    mask: `url(${JSON.stringify((a as { url: string }).url)}) center/contain no-repeat`,
                   }}
                 />
               ) : (

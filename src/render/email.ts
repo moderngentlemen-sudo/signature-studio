@@ -609,7 +609,7 @@ function renderImage(ctx: Ctx, node: ImageNode, inh: Inherited): string {
     // Tinted single-colour artwork is previewed with a CSS mask; the published
     // PNG is recoloured exactly by the pipeline.
     const inner = tint
-      ? `<div role="img" aria-label="${esc(alt)}" style="${pos}background:${esc(tint)};-webkit-mask:url('${esc(src)}') center/100% 100% no-repeat;mask:url('${esc(src)}') center/100% 100% no-repeat;"></div>`
+      ? `<div role="img" aria-label="${esc(alt)}" style="${pos}background:${esc(tint)};-webkit-mask:url(${esc(JSON.stringify(src))}) center/100% 100% no-repeat;mask:url(${esc(JSON.stringify(src))}) center/100% 100% no-repeat;"></div>`
       : `<img src="${esc(src)}" alt="${esc(alt)}" draggable="false" style="${pos}max-width:none;">`;
     html = `<div style="width:${frame.w}px;height:${frame.h}px;overflow:hidden;position:relative;border-radius:${radius};">${inner}</div>`;
   } else {

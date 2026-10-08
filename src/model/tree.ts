@@ -1,5 +1,6 @@
 import type { ContainerNode, SigNode, StackNode, Variant, Visibility } from "./types";
 import { uid } from "../lib/id";
+import { deepClone } from "../lib/clone";
 
 export function isContainer(node: SigNode): node is ContainerNode {
   return node.type === "stack" || node.type === "row" || node.type === "column";
@@ -102,7 +103,7 @@ export function moveNode(root: StackNode, id: string, parentId: string, index: n
 
 /** Deep clone with fresh ids. */
 export function cloneWithNewIds<T extends SigNode>(node: T): T {
-  const copy = structuredClone(node) as T;
+  const copy = deepClone(node) as T;
   const rec = (n: SigNode) => {
     n.id = uid("n");
     if (n.type === "contact") n.props.items.forEach((it) => (it.id = uid("c")));
