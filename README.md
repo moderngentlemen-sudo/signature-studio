@@ -37,6 +37,12 @@ A signature that contains images can be installed only after those images are pu
 
 Text-only signatures need no hosting.
 
+### Public editor preview
+
+The 3.0 preview is published at **[Signature Studio](https://moderngentlemen-sudo.github.io/signature-studio/)** using GitHub Pages. Projects stay in each visitor's browser; sharing this address shares the editor. Use project export/import to move a design between browsers or people. Images in installed email signatures still need the public image host described above.
+
+To update the preview, commit and push the source branch, then run `npm run deploy:preview` with your GitHub login available to Git. The command checks the source revision, builds with relative asset URLs, and publishes only the static build to `gh-pages` using a regular push. It rejects the local test image host and refuses to replace an unrelated Pages deployment. `/version.json` records the published source revision. GitHub Pages must be configured to publish from `gh-pages`, directory `/`; publication may take a few minutes.
+
 ## Test
 
 ```sh
