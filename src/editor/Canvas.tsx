@@ -74,6 +74,17 @@ export function Canvas() {
     return () => window.removeEventListener("ss:fit", onFit);
   }, [fit]);
 
+  useEffect(() => {
+    const wrap = wrapRef.current;
+    if (!wrap || !project) return;
+    let previousWidth = 0;
+    const observer = new ResizeObserver(() => {
+      if (wrap.clientWidth !== previousWidth) { previousWidth = wrap.clientWidth; fit(); }
+    });
+    observer.observe(wrap);
+    return () => observer.disconnect();
+  }, [fit, !!project]);
+
   if (!project) return <main className="canvas-wrap" />;
   // Side-by-side must fit: two papers plus padding.
   const wrapW = wrapRef.current?.clientWidth ?? 1000;
@@ -82,12 +93,19 @@ export function Canvas() {
   return (
     <main
       className="canvas-wrap"
+      id="signature-canvas"
+      tabIndex={-1}
       ref={wrapRef}
       aria-label="Signature canvas"
       onPointerDown={(e) => {
         if (e.target === e.currentTarget || (e.target as HTMLElement).classList.contains("canvas-scroll")) useEditor.getState().select(null);
       }}
     >
+      <div className="canvas-heading">
+        <span className="eyebrow"><span className="live-dot" aria-hidden="true" />Live canvas</span>
+        <h1>{preview ? "Ready for a closer look." : "Your signature, refined."}</h1>
+        <p>{preview ? "Review your design, then explore the preview lab." : "Your changes appear here. Select a component to make it yours."}</p>
+      </div>
       <div className="canvas-scroll">
         {compare ? (
           <div className="compare">
@@ -106,8 +124,9 @@ export function Canvas() {
           <Paper project={project} variant={variant} interactive={!preview} zoom={zoom} />
         )}
       </div>
-      <CanvasToggles />
-      <div className="zoom-ctl" role="group" aria-label="Zoom">
+      <div className="canvas-footer">
+        <CanvasToggles />
+        <div className="zoom-ctl" role="group" aria-label="Zoom">
         <button className="icon-btn small" aria-label="Zoom out" onClick={() => setZoom(zoom / 1.2)}>
           <Minus size={14} />
         </button>
@@ -118,6 +137,7 @@ export function Canvas() {
         <button className="icon-btn small" aria-label="Fit to screen" title="Fit to screen (Shift+1)" onClick={fit}>
           <Maximize size={13} />
         </button>
+      </div>
       </div>
     </main>
   );
@@ -203,7 +223,7 @@ function Paper({ project, variant, interactive, zoom, onPick }: PaperProps) {
   const over = measured > project.theme.width + 1;
 
   return (
-    <div className="paper" onClick={onPick} style={onPick ? { cursor: "pointer" } : undefined} data-testid={`paper-${variant}`}>
+    <div className="paper" onClick={onPick} style={{minWidth:Math.max(project.theme.width, interactive ? measured : 0) * zoom + 64, cursor:onPick ? "pointer" : undefined}} data-testid={`paper-${variant}`}>
       <div className="paper-chrome">
         <span>
           <strong style={{ color: "var(--ink)", fontWeight: 600 }}>{variant === "full" ? "Full signature" : "Reply signature"}</strong>

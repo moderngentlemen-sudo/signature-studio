@@ -22,10 +22,15 @@ export async function dragTo(page: Page, from: { x: number; y: number }, to: { x
 }
 
 export async function configureTestHost(page: Page) {
-  await page.getByRole("button", { name: "Settings" }).click();
+  await openWorkspaceTool(page, "Settings");
   await page.getByLabel("Image host address").fill("http://localhost:8787");
   await page.getByLabel("Upload key").fill("dev-key");
   await page.getByRole("button", { name: "Save", exact: true }).click();
+}
+
+export async function openWorkspaceTool(page: Page, name: string) {
+  await page.getByLabel("More tools", { exact: true }).click();
+  await page.locator(".workspace-menu-content").getByRole("button", { name, exact: true }).click();
 }
 
 /** A small valid PNG (solid colour) for upload tests. */

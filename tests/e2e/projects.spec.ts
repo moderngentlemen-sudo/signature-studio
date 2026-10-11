@@ -1,10 +1,10 @@
 import { expect, test } from "@playwright/test";
-import { stageText, startWithSample } from "./helpers";
+import { openWorkspaceTool, stageText, startWithSample } from "./helpers";
 import { readFileSync } from "node:fs";
 
 test("export a project file and import it as a new project", async ({ page }) => {
   await startWithSample(page);
-  await page.getByRole("button", { name: "Export" }).click();
+  await openWorkspaceTool(page, "Export");
   const [download] = await Promise.all([page.waitForEvent("download"), page.getByRole("listitem").filter({ hasText: "Project file" }).getByRole("button", { name: "Download" }).click()]);
   const path = await download.path();
   const text = readFileSync(path!, "utf8");
@@ -30,7 +30,7 @@ test("a damaged import is refused without touching existing work", async ({ page
 
 test("PNG export produces an image", async ({ page }) => {
   await startWithSample(page);
-  await page.getByRole("button", { name: "Export" }).click();
+  await openWorkspaceTool(page, "Export");
   const [download] = await Promise.all([page.waitForEvent("download"), page.getByRole("listitem").filter({ hasText: "PNG image" }).getByRole("button", { name: "Download" }).click()]);
   expect(download.suggestedFilename()).toMatch(/@2x\.png$/);
   const buf = readFileSync((await download.path())!);

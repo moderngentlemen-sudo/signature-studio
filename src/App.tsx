@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { X } from "lucide-react";
 import { useEditor } from "./state/store";
 import { Canvas } from "./editor/Canvas";
 import { Inspector } from "./editor/Inspector";
@@ -7,7 +8,14 @@ import { Onboarding } from "./editor/Onboarding";
 import { InstallDialog } from "./editor/dialogs/InstallDialog";
 import { ImageDialog } from "./editor/dialogs/ImageDialog";
 import { ContactImportDialog, LayoutFixDialog, PreviewLabDialog } from "./editor/dialogs/StudioDialogs";
-import { ApplyTemplateDialog, ExportDialog, ProjectsDialog, SettingsDialog, ShortcutsDialog, VersionsDialog } from "./editor/dialogs/ProjectDialogs";
+import {
+  ApplyTemplateDialog,
+  ExportDialog,
+  ProjectsDialog,
+  SettingsDialog,
+  ShortcutsDialog,
+  VersionsDialog,
+} from "./editor/dialogs/ProjectDialogs";
 import { useShortcuts } from "./editor/shortcuts";
 import { loadPrefs } from "./state/prefs";
 import { loadLibrary } from "./editor/library";
@@ -63,10 +71,24 @@ export default function App() {
 
   return (
     <div className={`app${preview ? " preview-mode" : ""}`}>
+      <a className="skip-link" href="#signature-canvas">
+        Skip to signature canvas
+      </a>
       <TopBar />
       <Rail />
       <Canvas />
-      <aside className={`inspector${sheet === "right" ? " open" : ""}`} aria-label="Properties">
+      <aside id="style-panel" className={`inspector${sheet === "right" ? " open" : ""}`} aria-label="Properties">
+        <div className="sheet-heading mobile-only">
+          <strong>Signature style</strong>
+          <button
+            id="close-style-panel"
+            className="icon-btn"
+            aria-label="Close style panel"
+            onClick={() => useEditor.getState().set({ mobileSheet: null })}
+          >
+            <X size={18} />
+          </button>
+        </div>
         <Inspector />
       </aside>
       <StatusBar />

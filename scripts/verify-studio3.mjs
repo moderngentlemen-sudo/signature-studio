@@ -91,7 +91,7 @@ try {
  });
  await step("visual version comparison and restore remain available",async()=>{
   await page.evaluate(async()=>{const {createProject}=await import("/src/templates/starter.ts"),{useEditor}=await import("/src/state/store.ts");useEditor.getState().load(createProject());});
-  await page.getByRole("button",{name:"History",exact:true}).click();await page.getByLabel("Name this version").fill("3.0 review");await page.getByRole("button",{name:"Save version",exact:true}).click();await page.getByRole("button",{name:"Compare version",exact:true}).first().click();assert.equal(await page.locator("dialog[open] .preview-card").count(),2);await close();
+  await page.getByLabel("More tools",{exact:true}).click();await page.getByRole("button",{name:"History",exact:true}).click();await page.getByLabel("Name this version").fill("3.0 review");await page.getByRole("button",{name:"Save version",exact:true}).click();await page.getByRole("button",{name:"Compare version",exact:true}).first().click();assert.equal(await page.locator("dialog[open] .preview-card").count(),2);await close();
  });
  await step("phone-sized guided flow can add an image and open previews",async()=>{
   await page.setViewportSize({width:390,height:844});await page.evaluate(async()=>{const {useEditor}=await import("/src/state/store.ts");useEditor.getState().set({mode:"simple",mobileSheet:"left"});});

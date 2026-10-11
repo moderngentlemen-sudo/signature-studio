@@ -11,13 +11,17 @@ export default defineConfig({
   use: {
     baseURL: "http://localhost:5181",
     viewport: { width: 1440, height: 900 },
-    launchOptions: existsSync(preinstalled) ? { executablePath: preinstalled } : {},
+    launchOptions: process.env.BROWSER_EXECUTABLE_PATH
+      ? { executablePath: process.env.BROWSER_EXECUTABLE_PATH }
+      : existsSync(preinstalled)
+        ? { executablePath: preinstalled }
+        : {},
     permissions: ["clipboard-read", "clipboard-write"],
   },
   webServer: [
     {
       // Test build: accepts the local test image host (clearly labelled in the UI).
-      command: "npx vite --port 5181 --strictPort",
+      command: "node node_modules/vite/bin/vite.js --port 5181 --strictPort",
       port: 5181,
       env: { VITE_TEST_HOST: "1" },
       reuseExistingServer: false,

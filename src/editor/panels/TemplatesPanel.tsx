@@ -90,6 +90,7 @@ export function TemplateGrid({
               className="tpl-card"
               style={{ width: "100%" }}
               aria-current={(pickedId ?? project?.templateId) === t.id}
+              aria-label={`${t.name} · ${t.category} layout`}
               onClick={() => onPick(t)}
               data-testid={`template-${t.id}`}
             >

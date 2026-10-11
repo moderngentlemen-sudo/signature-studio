@@ -2,6 +2,8 @@
 
 The 3.0 editor preview adds template comparison with real content, reviewable layout repairs, multi-selection editing, expanded preview diagnostics, and reviewed contact import. See [the implementation plan](docs/SIGNATURE_STUDIO_3_PLAN.md) for release gates and the complete roadmap.
 
+The refreshed interface adds a live welcome preview, visible field labels, separate workspace and editing controls, keyboard panel navigation, and accessible phone panels. History, export, settings and advanced editing remain available through **More tools** on smaller screens. The interface uses teal, ivory, serif headings and larger controls; exported signatures keep their own design settings.
+
 To run the focused browser checks, start the development server on port 5182 and run `node scripts/verify-studio3.mjs`. Set `BROWSER_EXECUTABLE_PATH` when using a system browser and `QA_OUTPUT` to save a screenshot and results. Unit tests also run with `npm test -- --pool=threads` where process isolation prevents access to temporary caches.
 
 A premium email-signature design studio with **Gmail installation that actually works**. You design once and get a Full signature and a Reply signature. Every image is published to a verified public URL before you are allowed to copy.
@@ -10,7 +12,7 @@ A premium email-signature design studio with **Gmail installation that actually 
 * **40 templates** across 19 categories. Switching layouts keeps your profile, social links, images and custom components.
 * **One profile, connected everywhere.** Editing your title once updates every component that shows it. A component can be detached when it needs independent text.
 * **Full and Reply visibility** per component (Both / Full / Reply / Hidden), with a side-by-side compare view and a one-click "Make Reply compact" option.
-* **The canvas shows the real email HTML.** The editor renders the same table-based markup that gets copied into Gmail, so what you see is what recipients get. An "As recipients see it" mode shows the fallback fonts.
+* **The canvas uses the email HTML renderer.** The editor previews the same table-based markup used for export. An "As recipients see it" mode shows fallback fonts. Email clients can render the markup differently; send a test email to check the installed result.
 * **Images you can trust:**
   * crop, shape, radius and tint are baked into a 2× PNG;
   * each image is stored at a content-addressed, immutable URL;
@@ -30,7 +32,7 @@ npm run dev            # http://localhost:5173
 
 A signature that contains images can be installed only after those images are published to a public host:
 
-* **Production:** deploy the Cloudflare Worker and R2 bucket in [`worker/`](worker/README.md). Then enter the host address and upload key in the app's **Settings** (gear icon). Set `VITE_ASSET_HOST` at build time to pre-fill the address. Never put the upload key in the build.
+* **Production:** deploy the Cloudflare Worker and R2 bucket in [`worker/`](worker/README.md). Then enter the host address and upload key in **More tools → Settings**. Set `VITE_ASSET_HOST` at build time to pre-fill the address. Never put the upload key in the build.
 * **Local testing:** run `npm run dev:host`, which starts a test host on `http://localhost:8787` with upload key `dev-key`. Then start the app with `VITE_TEST_HOST=1 npm run dev`. A red **Test image host** badge in the status bar marks this mode. Images published to the test host are **not** visible to real recipients.
 
 Text-only signatures need no hosting.

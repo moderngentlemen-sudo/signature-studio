@@ -8,8 +8,12 @@ export function Field(props: { label: ReactNode; hint?: ReactNode; children: (id
   return (
     <div className="field">
       <label htmlFor={id}>
-        <span>{props.label}</span>
-        {props.hint && <span className="hint">{props.hint}</span>}
+        <span id={`${id}-label`}>{props.label}</span>
+        {props.hint && (
+          <span className="hint" id={`${id}-hint`}>
+            {props.hint}
+          </span>
+        )}
       </label>
       {props.children(id)}
     </div>
@@ -33,6 +37,7 @@ export function TextInput(props: {
         props.multiline ? (
           <textarea
             id={id}
+            aria-describedby={props.hint ? `${id}-hint` : undefined}
             className="textarea"
             value={props.value}
             placeholder={props.placeholder}
@@ -44,6 +49,7 @@ export function TextInput(props: {
         ) : (
           <input
             id={id}
+            aria-describedby={props.hint ? `${id}-hint` : undefined}
             className="input"
             type={props.type ?? "text"}
             value={props.value}
@@ -68,7 +74,13 @@ export function Select<T extends string>(props: {
   return (
     <Field label={props.label} hint={props.hint}>
       {(id) => (
-        <select id={id} className="select" value={props.value} onChange={(e) => props.onChange(e.target.value as T)}>
+        <select
+          id={id}
+          aria-describedby={props.hint ? `${id}-hint` : undefined}
+          className="select"
+          value={props.value}
+          onChange={(e) => props.onChange(e.target.value as T)}
+        >
           {props.options.map((o) => (
             <option key={o.value} value={o.value}>
               {o.label}
@@ -117,7 +129,8 @@ export function Slider(props: {
         <div className="slider">
           <input
             type="range"
-            aria-labelledby={id}
+            aria-labelledby={`${id}-label`}
+            aria-describedby={props.hint ? `${id}-hint` : undefined}
             min={props.min}
             max={props.max}
             step={props.step ?? 1}
@@ -173,11 +186,25 @@ export function ColorField(props: {
   return (
     <Field
       label={props.label}
-      hint={props.value?.startsWith("$") ? `Theme · ${props.value.slice(1)}` : props.value ? "Custom" : props.allowInherit ? "Inherited" : undefined}
+      hint={
+        props.value?.startsWith("$")
+          ? `Theme · ${props.value.slice(1)}`
+          : props.value
+            ? "Custom"
+            : props.allowInherit
+              ? "Inherited"
+              : undefined
+      }
     >
       {(id) => (
         <div className="color-input">
-          <input id={id} type="color" value={toHex6(resolved ?? "#000000")} onChange={(e) => props.onChange(e.target.value)} aria-label="Custom colour" />
+          <input
+            id={id}
+            type="color"
+            value={toHex6(resolved ?? "#000000")}
+            onChange={(e) => props.onChange(e.target.value)}
+            aria-label="Custom colour"
+          />
           <div className="swatches" style={{ flex: 1 }}>
             {TOKENS.map((t) => (
               <button
@@ -213,7 +240,13 @@ export function ColorField(props: {
               />
             ))}
             {props.allowInherit && props.value && (
-              <button type="button" className="icon-btn small" title="Reset to inherited" aria-label="Reset colour" onClick={() => props.onChange(undefined)}>
+              <button
+                type="button"
+                className="icon-btn small"
+                title="Reset to inherited"
+                aria-label="Reset colour"
+                onClick={() => props.onChange(undefined)}
+              >
                 <X size={13} />
               </button>
             )}
@@ -240,16 +273,19 @@ export function toHex6(c: string): string {
 
 export function Section(props: { title: string; children: ReactNode; defaultOpen?: boolean; right?: ReactNode }) {
   const [open, setOpen] = useState(props.defaultOpen ?? true);
+  const id = useId();
   return (
     <div className="section">
-      <button type="button" className="section-head" aria-expanded={open} onClick={() => setOpen(!open)}>
+      <button type="button" className="section-head" aria-expanded={open} aria-controls={id} onClick={() => setOpen(!open)}>
         <span>{props.title}</span>
         <span className="row">
           {props.right}
           {open ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
         </span>
       </button>
-      {open && <div className="section-body">{props.children}</div>}
+      <div className="section-body" id={id} hidden={!open}>
+        {open && props.children}
+      </div>
     </div>
   );
 }
@@ -266,17 +302,38 @@ export function Modal(props: {
   testId?: string;
 }) {
   const ref = useRef<HTMLDialogElement>(null);
+  const returnFocus = useRef<HTMLElement | null>(null);
+  const id = useId();
+  useEffect(() => {
+    const d = ref.current;
+    return () => {
+      if (d?.open) restoreModalFocus(returnFocus.current);
+    };
+  }, []);
   useEffect(() => {
     const d = ref.current;
     if (!d) return;
-    if (props.open && !d.open) d.showModal();
-    if (!props.open && d.open) d.close();
+    if (props.open && !d.open) {
+      const active = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+      returnFocus.current = active?.closest("details")?.querySelector("summary") ?? active;
+      d.showModal();
+    }
+    if (!props.open && d.open) {
+      d.close();
+      // React removes the focused dialog content before this effect runs. Restore
+      // the opener explicitly, after any replacement dialog has opened.
+      restoreModalFocus(returnFocus.current);
+    }
   }, [props.open]);
   return (
     <dialog
       ref={ref}
+      aria-labelledby={`${id}-title`}
+      aria-describedby={props.subtitle ? `${id}-subtitle` : undefined}
       className={`modal${props.wide ? " wide" : ""}`}
-      onClose={() => { if (props.open) props.onClose(); }}
+      onClose={() => {
+        if (props.open) props.onClose();
+      }}
       onCancel={(e) => {
         e.preventDefault();
         props.onClose();
@@ -290,8 +347,8 @@ export function Modal(props: {
         <>
           <div className="modal-head">
             <div>
-              <h2>{props.title}</h2>
-              {props.subtitle && <p>{props.subtitle}</p>}
+              <h2 id={`${id}-title`}>{props.title}</h2>
+              {props.subtitle && <p id={`${id}-subtitle`}>{props.subtitle}</p>}
             </div>
             <button type="button" className="icon-btn" aria-label="Close" onClick={props.onClose}>
               <X size={18} />
@@ -305,16 +362,30 @@ export function Modal(props: {
   );
 }
 
+function restoreModalFocus(target: HTMLElement | null) {
+  queueMicrotask(() => {
+    if (document.querySelector("dialog[open]")) return;
+    if (target?.isConnected && target.getClientRects().length && getComputedStyle(target).visibility !== "hidden") target.focus();
+  });
+}
+
 export function Toggle(props: { label: ReactNode; checked: boolean; onChange: (v: boolean) => void; hint?: ReactNode }) {
   const id = useId();
   return (
     <div className="field" style={{ marginBottom: 8 }}>
       <label htmlFor={id} style={{ justifyContent: "flex-start", gap: 8, cursor: "pointer" }}>
-        <input id={id} type="checkbox" checked={props.checked} onChange={(e) => props.onChange(e.target.checked)} style={{ accentColor: "var(--ink)" }} />
+        <input
+          id={id}
+          type="checkbox"
+          aria-describedby={props.hint ? `${id}-hint` : undefined}
+          checked={props.checked}
+          onChange={(e) => props.onChange(e.target.checked)}
+          style={{ accentColor: "var(--ink)" }}
+        />
         <span>{props.label}</span>
       </label>
       {props.hint && (
-        <div className="hint" style={{ marginLeft: 22 }}>
+        <div className="hint" id={`${id}-hint`} style={{ marginLeft: 22 }}>
           {props.hint}
         </div>
       )}

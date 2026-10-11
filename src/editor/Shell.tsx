@@ -1,4 +1,4 @@
-import { useEffect, useMemo } from "react";
+import { useEffect, useMemo, useRef } from "react";
 import {
   CheckCircle2,
   Download,
@@ -22,6 +22,8 @@ import {
   UserRound,
   Wand2,
   AlertTriangle,
+  MoreHorizontal,
+  X,
 } from "lucide-react";
 import { useEditor, type LeftPanel } from "../state/store";
 import { Segmented } from "../ui/controls";
@@ -56,84 +58,191 @@ export function TopBar() {
   const canRedo = useEditor((s) => s.future.length > 0);
   const set = useEditor((s) => s.set);
   const openDialog = useEditor((s) => s.openDialog);
+  const saveState = useEditor((s) => s.saveState);
   if (!project) return <header className="topbar" />;
   return (
     <header className="topbar">
-      <div className="brand">
-        <span className="brand-mark" aria-hidden title="Signature Studio 3.0">
-          <svg width="18" height="18" viewBox="0 0 32 32">
-            <path d="M6 22c4-10 7-14 10-14s-2 12 1.5 12 4-6 8.5-6" stroke="#c9a46a" strokeWidth="2.6" fill="none" strokeLinecap="round" />
-          </svg>
+      <div className="topbar-main">
+        <div className="brand">
+          <StudioMark />
+          <span className="brand-wordmark">
+            Signature <strong>Studio</strong>
+            <span className="version-label">3.0</span>
+          </span>
+        </div>
+        <div className="project-identity">
+          <span className="project-caption">Your workspace</span>
+          <input
+            className="project-name"
+            value={project.name}
+            aria-label="Project name"
+            onChange={(e) => useEditor.getState().edit((d) => void (d.name = e.target.value), "name")}
+          />
+        </div>
+        <span className="spacer" />
+        <span className={`save-pill desktop-only${saveState === "error" ? " warn" : ""}`} role="status">
+          {saveState === "saving" ? (
+            <Loader2 size={14} className="spin" />
+          ) : saveState === "error" ? (
+            <AlertTriangle size={14} />
+          ) : (
+            <CheckCircle2 size={14} />
+          )}
+          {saveState === "saving"
+            ? "Saving…"
+            : saveState === "error"
+              ? "Not saved"
+              : saveState === "unsaved"
+                ? "Unsaved changes"
+                : "Saved in this browser"}
         </span>
-        <input
-          className="project-name"
-          value={project.name}
-          aria-label="Project name"
-          onChange={(e) => useEditor.getState().edit((d) => void (d.name = e.target.value), "name")}
-        />
-        <button className="icon-btn desktop-only" title="Your signatures" aria-label="Your signatures" onClick={() => openDialog("projects")}>
-          <FolderOpen size={16} />
+        <button className="btn desktop-only" onClick={() => openDialog("projects")}>
+          <FolderOpen size={16} /> Your signatures
+        </button>
+        <WorkspaceMenu />
+        <button className="btn brass install-action" onClick={() => openDialog("install")} data-testid="install-button">
+          <Send size={15} /> <span className="desktop-only">Install in Gmail</span>
+          <span className="mobile-only">Install</span>
         </button>
       </div>
-      <span className="desktop-only">
+      <div className="topbar-tools" aria-label="Editor controls">
+        <span className="desktop-only mode-switch">
+          <Segmented
+            label="Editing mode"
+            value={mode}
+            onChange={(m) => {
+              set({ mode: m, leftPanel: m === "advanced" ? "add" : "templates" });
+              updatePrefs({ mode: m });
+            }}
+            options={[
+              { value: "simple", label: "Simple", title: "Guided steps" },
+              { value: "advanced", label: "Advanced", title: "Full design control" },
+            ]}
+          />
+        </span>
+        <div className="row" style={{ gap: 0 }}>
+          <button className="icon-btn" aria-label="Undo" title="Undo (⌘Z)" disabled={!canUndo} onClick={() => useEditor.getState().undo()}>
+            <Undo2 size={16} />
+          </button>
+          <button className="icon-btn" aria-label="Redo" title="Redo (⌘⇧Z)" disabled={!canRedo} onClick={() => useEditor.getState().redo()}>
+            <Redo2 size={16} />
+          </button>
+        </div>
+        <span className="toolbar-divider desktop-only" aria-hidden="true" />
         <Segmented
-          label="Editing mode"
-          value={mode}
-          onChange={(m) => {
-            set({ mode: m, leftPanel: m === "advanced" ? "add" : "templates" });
-            updatePrefs({ mode: m });
-          }}
+          label="Signature variant"
+          value={compare ? "compare" : variant}
+          onChange={(v) => (v === "compare" ? set({ compare: true }) : set({ compare: false, variant: v as "full" | "reply" }))}
           options={[
-            { value: "simple", label: "Simple", title: "Guided steps" },
-            { value: "advanced", label: "Advanced", title: "Full design control" },
+            { value: "full", label: "Full", title: "Signature for new emails (R)" },
+            { value: "reply", label: "Reply", title: "Signature for replies & forwards (R)" },
+            { value: "compare", label: "Compare", title: "Side by side" },
           ]}
         />
-      </span>
-      <div className="row" style={{ gap: 0 }}>
-        <button className="icon-btn" aria-label="Undo" title="Undo (⌘Z)" disabled={!canUndo} onClick={() => useEditor.getState().undo()}>
-          <Undo2 size={16} />
+        <span className="spacer" />
+        <button className="btn small studio-tool" aria-label="Preview lab" title="Preview lab" onClick={() => openDialog("previewLab")}>
+          <Eye size={14} />
+          <span>Preview lab</span>
         </button>
-        <button className="icon-btn" aria-label="Redo" title="Redo (⌘⇧Z)" disabled={!canRedo} onClick={() => useEditor.getState().redo()}>
-          <Redo2 size={16} />
+        <button
+          className="btn small studio-tool desktop-only"
+          aria-label="Fix layout"
+          title="Fix layout"
+          onClick={() => openDialog("layoutFix")}
+        >
+          <Wand2 size={14} />
+          <span>Fix layout</span>
+        </button>
+        <button
+          className="icon-btn canvas-preview"
+          aria-label={preview ? "Exit preview" : "Preview"}
+          title="Preview (P)"
+          aria-pressed={preview}
+          onClick={() => set({ preview: !preview, selection: null })}
+        >
+          {preview ? <EyeOff size={16} /> : <Eye size={16} />}
         </button>
       </div>
-      <span className="spacer" />
-      <Segmented
-        label="Signature variant"
-        value={compare ? "compare" : variant}
-        onChange={(v) => (v === "compare" ? set({ compare: true }) : set({ compare: false, variant: v as "full" | "reply" }))}
-        options={[
-          { value: "full", label: "Full", title: "Signature for new emails (R)" },
-          { value: "reply", label: "Reply", title: "Signature for replies & forwards (R)" },
-          { value: "compare", label: <span className="desktop-only">Compare</span>, title: "Side by side" },
-        ]}
-      />
-      <span className="spacer" />
-      <button className="btn small studio-tool" aria-label="Preview lab" title="Preview lab" onClick={() => openDialog("previewLab")}><Eye size={14}/><span>Preview lab</span></button>
-      <button className="btn small studio-tool desktop-only" aria-label="Fix layout" title="Fix layout" onClick={() => openDialog("layoutFix")}><Wand2 size={14}/><span>Fix layout</span></button>
-      <button
-        className="icon-btn canvas-preview"
-        aria-label={preview ? "Exit preview" : "Preview"}
-        title="Preview (P)"
-        aria-pressed={preview}
-        onClick={() => set({ preview: !preview, selection: null })}
-      >
-        {preview ? <EyeOff size={16} /> : <Eye size={16} />}
-      </button>
-      <button className="icon-btn desktop-only" aria-label="History" title="History & versions" onClick={() => openDialog("versions")}>
-        <History size={16} />
-      </button>
-      <button className="icon-btn desktop-only" aria-label="Settings" title="Image hosting settings" onClick={() => openDialog("settings")}>
-        <Settings size={16} />
-      </button>
-      <button className="btn desktop-only" onClick={() => openDialog("export")}>
-        <Download size={15} /> Export
-      </button>
-      <button className="btn brass" onClick={() => openDialog("install")} data-testid="install-button">
-        <Send size={15} /> <span className="desktop-only">Install in Gmail</span>
-        <span className="mobile-only">Install</span>
-      </button>
     </header>
+  );
+}
+
+export function StudioMark() {
+  return (
+    <span className="brand-mark" aria-hidden="true">
+      <svg width="24" height="24" viewBox="0 0 32 32" fill="none">
+        <path d="M6 23c4-11 7-15 10-15s-2 12 1.5 12 4-6 8.5-6" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" />
+        <path d="M7 27h18" stroke="currentColor" strokeOpacity=".45" strokeWidth="1.5" strokeLinecap="round" />
+      </svg>
+    </span>
+  );
+}
+
+function WorkspaceMenu() {
+  const ref = useRef<HTMLDetailsElement>(null);
+  const mode = useEditor((s) => s.mode);
+  const openDialog = useEditor((s) => s.openDialog);
+  useEffect(() => {
+    const closeOutside = (e: PointerEvent) => {
+      if (!ref.current?.contains(e.target as Node) && ref.current) ref.current.open = false;
+    };
+    document.addEventListener("pointerdown", closeOutside);
+    return () => document.removeEventListener("pointerdown", closeOutside);
+  }, []);
+  return (
+    <details
+      className="workspace-menu"
+      ref={ref}
+      onKeyDown={(e) => {
+        if (e.key === "Escape") {
+          e.preventDefault();
+          ref.current!.open = false;
+          ref.current!.querySelector("summary")?.focus();
+        }
+      }}
+    >
+      <summary className="icon-btn" aria-label="More tools" title="More tools">
+        <MoreHorizontal size={20} />
+      </summary>
+      <div className="workspace-menu-content">
+        <span className="menu-caption">Workspace tools</span>
+        <div className="mobile-only menu-mode">
+          <Segmented
+            label="Editing mode"
+            value={mode}
+            onChange={(m) => {
+              useEditor.getState().set({ mode: m, leftPanel: m === "advanced" ? "add" : "templates" });
+              updatePrefs({ mode: m });
+            }}
+            options={[
+              { value: "simple", label: "Simple" },
+              { value: "advanced", label: "Advanced" },
+            ]}
+          />
+        </div>
+        {(
+          [
+            { dialog: "projects", label: "Your signatures", icon: FolderOpen },
+            { dialog: "versions", label: "History", icon: History },
+            { dialog: "export", label: "Export", icon: Download },
+            { dialog: "settings", label: "Settings", icon: Settings },
+            { dialog: "shortcuts", label: "Keyboard shortcuts", icon: Keyboard },
+            { dialog: "layoutFix", label: "Fix layout", icon: Wand2 },
+          ] as const
+        ).map((item) => (
+          <button
+            key={item.dialog}
+            onClick={() => {
+              ref.current!.open = false;
+              openDialog(item.dialog);
+            }}
+          >
+            <item.icon size={17} />
+            {item.label}
+          </button>
+        ))}
+      </div>
+    </details>
   );
 }
 
@@ -144,14 +253,40 @@ export function Rail() {
   const set = useEditor((s) => s.set);
   return (
     <aside className={`rail${sheet === "left" ? " open" : ""}`} aria-label="Tools">
+      <div className="sheet-heading mobile-only">
+        <strong>Edit your signature</strong>
+        <button id="close-edit-panel" className="icon-btn" aria-label="Close editing panel" onClick={() => set({ mobileSheet: null })}>
+          <X size={18} />
+        </button>
+      </div>
       {mode === "advanced" && (
-        <nav className="rail-tabs" role="tablist" aria-label="Panels" aria-orientation="vertical">
+        <nav className="rail-tabs" role="tablist" aria-label="Panels" aria-orientation="horizontal">
           {TABS.map((t) => (
             <button
               key={t.id}
               role="tab"
               className="rail-tab"
               aria-selected={panel === t.id}
+              id={`panel-tab-${t.id}`}
+              aria-controls="editor-panel"
+              tabIndex={panel === t.id ? 0 : -1}
+              onKeyDown={(e) => {
+                const i = TABS.findIndex((tab) => tab.id === t.id);
+                const next =
+                  e.key === "ArrowRight"
+                    ? (i + 1) % TABS.length
+                    : e.key === "ArrowLeft"
+                      ? (i + TABS.length - 1) % TABS.length
+                      : e.key === "Home"
+                        ? 0
+                        : e.key === "End"
+                          ? TABS.length - 1
+                          : -1;
+                if (next < 0) return;
+                e.preventDefault();
+                set({ leftPanel: TABS[next].id });
+                document.getElementById(`panel-tab-${TABS[next].id}`)?.focus();
+              }}
               onClick={() => set({ leftPanel: t.id })}
               data-testid={`tab-${t.id}`}
             >
@@ -161,7 +296,13 @@ export function Rail() {
           ))}
         </nav>
       )}
-      <div className="rail-body" role="tabpanel">
+      <div
+        className="rail-body"
+        id="editor-panel"
+        role={mode === "advanced" ? "tabpanel" : undefined}
+        aria-labelledby={mode === "advanced" ? `panel-tab-${panel}` : undefined}
+        tabIndex={mode === "advanced" ? 0 : undefined}
+      >
         {mode === "simple" ? (
           <GuidedPanel />
         ) : panel === "templates" ? (
@@ -196,7 +337,13 @@ export function StatusBar() {
   const over = measured > project.theme.width + 1;
   return (
     <footer className="statusbar">
-      <button className="btn small ghost mobile-only" onClick={() => set({ mobileSheet: sheet === "left" ? null : "left" })} aria-pressed={sheet === "left"}>
+      <button
+        id="mobile-edit-trigger"
+        className="btn small ghost mobile-only"
+        onClick={() => set({ mobileSheet: sheet === "left" ? null : "left", preview: false })}
+        aria-expanded={sheet === "left"}
+        aria-controls="editor-panel"
+      >
         <PanelLeft size={14} /> Edit
       </button>
       <span className={`desktop-only ${over ? "warn" : ""}`}>
@@ -218,10 +365,7 @@ export function StatusBar() {
         </span>
       )}
       {over && (
-        <button
-          className="btn small ghost desktop-only"
-          onClick={() => useEditor.getState().openDialog("layoutFix")}
-        >
+        <button className="btn small ghost desktop-only" onClick={() => useEditor.getState().openDialog("layoutFix")}>
           <Wand2 size={12} /> Fix layout
         </button>
       )}
@@ -231,7 +375,10 @@ export function StatusBar() {
         </span>
       )}
       <span style={{ flex: 1 }} className="desktop-only" />
-      <span className="desktop-only">
+      <span className={`mobile-only mobile-save${saveState === "error" ? " warn" : ""}`} role="status">
+        {saveState === "saving" ? "Saving…" : saveState === "error" ? "Not saved" : saveState === "unsaved" ? "Unsaved" : "Saved"}
+      </span>
+      <span className="desktop-only" role="status">
         {saveState === "saving" ? (
           <>
             <Loader2 size={11} className="spin" style={{ verticalAlign: -1 }} /> Saving…
@@ -244,10 +391,20 @@ export function StatusBar() {
           "Saved in this browser"
         )}
       </span>
-      <button className="btn small ghost desktop-only" onClick={() => useEditor.getState().openDialog("shortcuts")} aria-label="Keyboard shortcuts">
+      <button
+        className="btn small ghost desktop-only"
+        onClick={() => useEditor.getState().openDialog("shortcuts")}
+        aria-label="Keyboard shortcuts"
+      >
         <Keyboard size={13} />
       </button>
-      <button className="btn small ghost mobile-only" onClick={() => set({ mobileSheet: sheet === "right" ? null : "right" })} aria-pressed={sheet === "right"}>
+      <button
+        id="mobile-style-trigger"
+        className="btn small ghost mobile-only"
+        onClick={() => set({ mobileSheet: sheet === "right" ? null : "right", preview: false })}
+        aria-expanded={sheet === "right"}
+        aria-controls="style-panel"
+      >
         <PanelRight size={14} /> Style
       </button>
     </footer>
@@ -296,7 +453,24 @@ export function DragGhost() {
 /** Close the mobile sheet when a dialog opens or selection changes on phones. */
 export function useMobileSheetSync() {
   const dialog = useEditor((s) => s.dialog);
+  const sheet = useEditor((s) => s.mobileSheet);
+  const previousSheet = useRef(sheet);
+  useEffect(() => {
+    const previous = previousSheet.current;
+    previousSheet.current = sheet;
+    if (!window.matchMedia("(max-width: 900px)").matches || dialog) return;
+    if (sheet) document.getElementById(sheet === "left" ? "close-edit-panel" : "close-style-panel")?.focus();
+    else if (previous) document.getElementById(previous === "left" ? "mobile-edit-trigger" : "mobile-style-trigger")?.focus();
+  }, [sheet, dialog]);
   useEffect(() => {
     if (dialog) useEditor.getState().set({ mobileSheet: null });
   }, [dialog]);
+  useEffect(() => {
+    const closeSheet = (e: KeyboardEvent) => {
+      if (e.key !== "Escape" || e.defaultPrevented || useEditor.getState().dialog || !useEditor.getState().mobileSheet) return;
+      useEditor.getState().set({ mobileSheet: null });
+    };
+    document.addEventListener("keydown", closeSheet);
+    return () => document.removeEventListener("keydown", closeSheet);
+  }, []);
 }

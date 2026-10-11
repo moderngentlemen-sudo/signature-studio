@@ -37,7 +37,7 @@ export const TemplateThumb = memo(function TemplateThumb({
     return renderSignature(base, { variant: "full", mode: "preview", sourceUrl }).html;
   }, [template, profile, imagesKey, assets]);
   return (
-    <div className="tpl-thumb" aria-hidden>
+    <div className="tpl-thumb" aria-hidden inert>
       <div className="tpl-thumb-inner" style={{ transform: `scale(${scale})` }} dangerouslySetInnerHTML={{ __html: html }} />
     </div>
   );
