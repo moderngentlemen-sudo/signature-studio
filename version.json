@@ -1,0 +1,7 @@
+{
+  "deployment": "signature-studio-public-preview",
+  "version": "3.0.0-alpha.1",
+  "sourceCommit": "8153ce93be1e2671c6f58ee867dbe0572fef9f04",
+  "sourceBranch": "codex/signature-studio-3",
+  "publishedAt": "2026-10-11T08:37:38.869Z"
+}
