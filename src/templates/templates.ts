@@ -1064,7 +1064,7 @@ export const TEMPLATES: Template[] = [
   },
 ];
 
-export const TEMPLATE_MAP: Record<string, Template> = Object.fromEntries(TEMPLATES.map((tpl) => [tpl.id, tpl]));
+export const TEMPLATE_MAP: Record<string, Template> = Object.assign(Object.create(null), Object.fromEntries(TEMPLATES.map((tpl) => [tpl.id, tpl])));
 
 export const CATEGORIES: TemplateCategory[] = [...new Set(TEMPLATES.map((tpl) => tpl.category))];
 

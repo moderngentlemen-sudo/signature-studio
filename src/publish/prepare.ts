@@ -51,7 +51,7 @@ export function emailHtml(project: Project, variant: Variant, fallbackFonts = fa
     fallbackFonts,
     resolveImage: (req) => {
       const p = project.published[req.key];
-      return p ? { src: p.url } : null;
+      return p && p.verifiedAt > 0 && Date.now() - p.verifiedAt < REVERIFY_MS ? { src: p.url } : null;
     },
   });
   const problems: ValidationProblem[] = [
@@ -81,7 +81,11 @@ export async function prepareVariant(variant: Variant, hostConfig: HostConfig | 
   try {
     await pool(requests, 3, async (req) => {
       const base = { key: req.key, label: req.label, nodeId: req.nodeId };
-      const cached = useEditor.getState().project!.published[req.key];
+      const cached = project.published[req.key];
+      const update = (recipe: (draft: Project) => void) => {
+        if (useEditor.getState().project?.id === project.id) useEditor.getState().editLive(recipe);
+      };
+      if (opts.force) update(d => { delete d.published[req.key]; });
       if (cached && !opts.force) {
         if (Date.now() - cached.verifiedAt < REVERIFY_MS) {
           setStatus({ ...base, state: "ready", url: cached.url, message: testNote(cached.url) });
@@ -90,10 +94,11 @@ export async function prepareVariant(variant: Variant, hostConfig: HostConfig | 
         setStatus({ ...base, state: "preparing", message: "Re-checking public access…" });
         const v = await verifyPublicImage(cached.url);
         if (v.ok) {
-          useEditor.getState().editLive((d) => void (d.published[req.key].verifiedAt = Date.now()));
+          update(d => { if (d.published[req.key]) d.published[req.key].verifiedAt = Date.now(); });
           setStatus({ ...base, state: "ready", url: cached.url, message: testNote(cached.url) });
           return;
         }
+        update(d => { delete d.published[req.key]; });
       }
       if (!host) {
         setStatus({ ...base, state: "attention", message: "Image hosting isn't set up yet. Add an image host in Settings." });
@@ -111,7 +116,7 @@ export async function prepareVariant(variant: Variant, hostConfig: HostConfig | 
           setStatus({ ...base, state: "failed", message: v.message });
           return;
         }
-        useEditor.getState().editLive((d) => {
+        update((d) => {
           d.published[req.key] = {
             url,
             hash,
@@ -130,5 +135,7 @@ export async function prepareVariant(variant: Variant, hostConfig: HostConfig | 
   } finally {
     usePublish.setState({ running: null });
   }
-  return emailHtml(useEditor.getState().project!, variant);
+  const current = useEditor.getState().project;
+  if (!current || current.id !== project.id) throw new Error("The open project changed during preparation. Prepare this signature again.");
+  return emailHtml(current, variant);
 }

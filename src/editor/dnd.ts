@@ -5,10 +5,10 @@
  * point wins.
  */
 import { create } from "zustand";
-import type { SigNode } from "../model/types";
-import { insertNode, moveTo, type DropTarget } from "./actions";
+import type { AssetMeta, SigNode } from "../model/types";
+import { insertNode, moveSelectionTo, type DropTarget } from "./actions";
 
-export type DragSource = { kind: "new"; create: () => SigNode } | { kind: "move"; nodeId: string };
+export type DragSource = { kind: "new"; create: () => SigNode; assets?: Record<string, AssetMeta> } | { kind: "move"; nodeId: string };
 
 export interface Indicator {
   surface: "canvas" | "layers";
@@ -83,8 +83,8 @@ export function armDrag(e: PointerEvent | React.PointerEvent, source: DragSource
     const res = ev.type === "pointerup" ? resolve(ev.clientX, ev.clientY, source) : null;
     useDrag.setState({ source: null, resolution: null });
     if (!res) return;
-    if (source.kind === "new") insertNode(source.create(), res.target);
-    else moveTo(source.nodeId, res.target);
+    if (source.kind === "new") insertNode(source.create(), res.target, source.assets);
+    else moveSelectionTo(source.nodeId, res.target);
   };
   const key = (ev: KeyboardEvent) => {
     if (ev.key === "Escape") {

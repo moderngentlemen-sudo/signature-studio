@@ -1,10 +1,10 @@
 /**
  * Design assistance: Auto-Fit, compact Reply preset and design checks.
  */
-import { walk } from "../model/tree";
+import { walk, isContainer, visibleIn } from "../model/tree";
 import { fontDef } from "../model/fonts";
-import { resolveColor, resolveFont } from "../render/email";
-import type { Project, SigNode, StackNode, Theme } from "../model/types";
+import { resolveColor, resolveFont, renderSignature } from "../render/email";
+import type { Project, SigNode, StackNode, TextStyle, Variant } from "../model/types";
 import { useEditor } from "../state/store";
 
 /** Smallest legible size (px) Auto-Fit will allow. */
@@ -80,59 +80,84 @@ export function applyCompactReply(): number {
   return changed;
 }
 
-// --- Design checks ---------------------------------------------------------------
 
+import { assetMeta } from "../model/builtins";
+import { cropRect, frameSize } from "../model/crop";
+import { fieldValue } from "../model/profile";
+import { safeHref } from "../lib/url";
+// --- Design checks ---------------------------------------------------------------
 export interface Check {
   level: "warning" | "info";
   nodeId?: string;
   message: string;
 }
-
 function luminance(hex: string): number {
-  const m = /^#?([0-9a-f]{6})$/i.exec(hex);
+  const expanded = /^#[0-9a-f]{3}$/i.test(hex) ? "#"+hex.slice(1).split("").map(c=>c+c).join("") : hex;
+  const m = /^#?([0-9a-f]{6})$/i.exec(expanded);
   if (!m) return 1;
-  const n = parseInt(m[1], 16);
-  const c = [(n >> 16) & 255, (n >> 8) & 255, n & 255].map((v) => {
-    const s = v / 255;
-    return s <= 0.03928 ? s / 12.92 : ((s + 0.055) / 1.055) ** 2.4;
-  });
-  return 0.2126 * c[0] + 0.7152 * c[1] + 0.0722 * c[2];
+  const n = parseInt(m[1],16);
+  const c = [(n>>16)&255,(n>>8)&255,n&255].map(v=>{const s=v/255;return s<=0.04045?s/12.92:((s+0.055)/1.055)**2.4;});
+  return 0.2126*c[0]+0.7152*c[1]+0.0722*c[2];
 }
-
-export function contrast(a: string, b: string): number {
-  const [l1, l2] = [luminance(a), luminance(b)].sort((x, y) => y - x);
-  return (l1 + 0.05) / (l2 + 0.05);
+export function contrast(a:string,b:string):number {
+  const [l1,l2]=[luminance(a),luminance(b)].sort((x,y)=>y-x);
+  return (l1+0.05)/(l2+0.05);
 }
-
-export function designChecks(project: Project, measuredWidth: number): Check[] {
-  const checks: Check[] = [];
-  const theme: Theme = project.theme;
-  const bg = theme.background && theme.background !== "transparent" ? resolveColor(theme, theme.background) : "#ffffff";
-  if (measuredWidth > theme.width + 1)
-    checks.push({ level: "warning", message: `The signature is ${Math.round(measuredWidth)}px wide, more than the ${theme.width}px target. Try Auto-Fit.` });
-  const fonts = new Set<string>([theme.fonts.display, theme.fonts.body]);
-  walk(project.root, ({ node }) => {
-    if (node.text?.font) fonts.add(resolveFont(theme, node.text.font));
-    checkNode(node);
-  });
-  for (const f of fonts) {
-    const def = fontDef(f);
-    if (!def.safe) checks.push({ level: "info", message: `${def.label} is a web font. Most recipients will see ${def.seenAs}.` });
-  }
-  return checks;
-
-  function checkNode(node: SigNode) {
-    const size = (node.text?.size ?? theme.size) * theme.scale;
-    if ((node.type === "field" || node.type === "text" || node.type === "contact") && size < MIN_READABLE)
-      checks.push({ level: "warning", nodeId: node.id, message: `Some text is ${size.toFixed(1)}px, which is hard to read on phones.` });
-    if (node.text?.color) {
-      const fg = resolveColor(theme, node.text.color);
-      const local = node.box?.background ? resolveColor(theme, node.box.background) : bg;
-      const ratio = contrast(fg, local);
-      if (ratio < 2) checks.push({ level: "warning", nodeId: node.id, message: "Very low text contrast. It may be unreadable." });
-      else if (ratio < 3) checks.push({ level: "info", nodeId: node.id, message: "Some accent text has modest contrast; keep it short or large." });
+export function designChecks(project: Project, measuredWidth:number, variant: Variant = "full"): Check[] {
+  const checks:Check[]=[];
+  const theme=project.theme;
+  const bg=theme.background && theme.background!=="transparent"?resolveColor(theme,theme.background):"#ffffff";
+  if(measuredWidth>theme.width+1) checks.push({level:"warning",message:`The signature is ${Math.round(measuredWidth)}px wide, beyond the ${theme.width}px target. Review layout fixes.`});
+  const fonts=new Set<string>();
+  const warn=(node:SigNode,message:string)=>checks.push({level:"warning",nodeId:node.id,message});
+  const link=(node:SigNode,href:string|undefined,required=false)=>{
+    if(href?.trim() && !safeHref(href)) warn(node,"This link target is unsafe or invalid and will not be clickable.");
+    else if(required && !href?.trim()) warn(node,"This button has no link target. Set a URL or connected profile field.");
+  };
+  const visit=(node:SigNode,parent:TextStyle,background:string)=>{
+    if(!visibleIn(node.visibility,variant)) return;
+    const style={...parent};
+    for(const [key,value] of Object.entries(node.text??{})) if(value!==undefined) (style as Record<string,unknown>)[key]=value;
+    const local=node.box?.background && node.box.background!=="transparent"?resolveColor(theme,node.box.background):background;
+    const size=(style.size??theme.size)*theme.scale;
+    const weight=style.weight??400;
+    const textlike=["field","text","badge","contact","button"].includes(node.type) || (node.type==="social" && node.props.style==="text");
+    const meaningful=node.type==="field" ? !!(node.props.detached ? node.props.text : fieldValue(project.profile,node.props.field)) :
+      node.type==="text" || node.type==="badge" ? !!node.props.text.trim() : true;
+    if(textlike && meaningful) {
+      fonts.add(resolveFont(theme,style.font));
+      if(size<MIN_READABLE) warn(node,`Text is ${size.toFixed(1)}px after scaling. Increase it to at least ${MIN_READABLE}px.`);
+      let fg=resolveColor(theme,style.color??"$ink");
+      let surface=local;
+      if(node.type==="button") { fg=resolveColor(theme,node.props.variant==="solid"?node.props.textColor:node.props.color); if(node.props.variant==="solid") surface=resolveColor(theme,node.props.color); }
+      const ratio=contrast(fg,surface);
+      const threshold=size>=24 || (size>=18.66 && weight>=700) ? 3 : 4.5;
+      if(ratio<threshold) warn(node,`Text contrast is ${ratio.toFixed(2)}:1; aim for ${threshold}:1 at this size. Inherited colours and background are included.`);
+      if(node.type==="contact" && node.props.labels!=="none") {
+        const ratio=contrast(resolveColor(theme,node.props.labelColor??"$accent"),local);
+        if(ratio<threshold) warn(node,`Contact label contrast is ${ratio.toFixed(2)}:1; choose a darker or lighter label colour.`);
+      }
     }
-    if (node.type === "image" && node.props.assetId && !node.props.alt.trim())
-      checks.push({ level: "warning", nodeId: node.id, message: "An image is missing alternative text." });
-  }
+    if(node.type==="text" || node.type==="badge" || node.type==="image") link(node,node.props.href);
+    if(node.type==="button") link(node,node.props.href || (node.props.field ? fieldValue(project.profile,node.props.field):""),true);
+    if(node.type==="image" && node.props.assetId) {
+      const meta=assetMeta(project,node.props.assetId);
+      if(!meta) warn(node,"Image source metadata is missing. Replace or re-import the image.");
+      if(!node.props.alt.trim()) warn(node,node.props.href?"A linked image needs alternative text that explains its destination.":"An image is missing alternative text.");
+      if(meta && meta.mime!=="image/svg+xml") {
+        const frame=frameSize(node.props.width,node.props.aspect,meta.width,meta.height);
+        const crop=cropRect(meta.width,meta.height,frame.aspect,node.props.crop);
+        if(crop.sw<frame.w*theme.scale*2 || crop.sh<frame.h*theme.scale*2) checks.push({level:"info",nodeId:node.id,message:"This crop has fewer than 2 source pixels per display pixel. It may appear soft on high-resolution screens."});
+      }
+    }
+    if(node.type==="qr" && !node.props.alt.trim()) warn(node,"The QR code needs alternative text describing its destination.");
+    if(node.type==="social") project.profile.socials.filter(s=>s.visible && !node.props.hidden.includes(s.id)).forEach(s=>link(node,s.url));
+    if(isContainer(node)) node.children.forEach(child=>visit(child,style,local));
+  };
+  visit(project.root,{size:theme.size,color:"$ink",font:"$body",weight:400},bg);
+  for(const f of fonts) { const def=fontDef(f); if(!def.safe) checks.push({level:"info",message:`${def.label} is a web font. Most recipients will see ${def.seenAs}.`}); }
+  const html=renderSignature(project,{variant,mode:"email",resolveImage:req=>({src:project.published[req.key]?.url??"https://assets.example.com/diagnostic.png"})}).html;
+  const bytes=new TextEncoder().encode(html).length;
+  if(bytes>90*1024) checks.push({level:"warning",message:`Signature HTML is approximately ${Math.round(bytes/1024)}KB. Reduce blocks or styling to leave room for the rest of the email.`});
+  return checks;
 }

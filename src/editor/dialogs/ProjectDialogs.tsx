@@ -19,12 +19,14 @@ import { emailHtml } from "../../publish/prepare";
 import { htmlDocument } from "../../render/validate";
 import { copyText } from "../../lib/clipboard";
 import { renderSignature } from "../../render/email";
-import { sourceUrl } from "../../state/assets";
-import { TEMPLATE_MAP } from "../../templates/templates";
+import { hydrateSources, sourceUrl } from "../../state/assets";
+import { TEMPLATE_MAP, TEMPLATES } from "../../templates/templates";
 import { applyTemplate, summarizeApply } from "../../templates/apply";
 import { pushRecent, updatePrefs, usePrefs } from "../../state/prefs";
 import type { Variant } from "../../model/types";
 import { hostFromConfig } from "../../publish/host";
+
+import { PreviewFrame } from "../PreviewFrame";
 
 const close = () => useEditor.getState().openDialog(null);
 
@@ -37,10 +39,17 @@ export function ApplyTemplateDialog() {
   const id = useEditor((s) => s.dialogArg);
   const project = useEditor((s) => s.project);
   const template = id ? TEMPLATE_MAP[id] : null;
+  const shortlist = useEditor(s => s.templateCandidates);
+  const [variant, setVariant] = useState<Variant>("full");
   const [keepLook, setKeepLook] = useState(false);
   const [keepCustom, setKeepCustom] = useState(true);
   const summary = useMemo(() => (project && template ? summarizeApply(project, template) : null), [project, template]);
 
+  const candidates = useMemo(() => {
+    if (!project || !template) return [];
+    const choices = [...new Set([template.id, ...shortlist, ...TEMPLATES.filter(t => t.category === template.category && t.id !== project.templateId).map(t => t.id)])].slice(0, 3);
+    return choices.map(id => { const t = TEMPLATE_MAP[id]; const p = structuredClone(project); applyTemplate(p, t, { keepLook, keepCustom }); return { template: t, project: p }; });
+  }, [project, template, shortlist, keepLook, keepCustom]);
   const apply = () => {
     if (!template) return;
     useEditor.getState().edit((d) => void applyTemplate(d, template, { keepLook, keepCustom }));
@@ -56,8 +65,9 @@ export function ApplyTemplateDialog() {
     <Modal
       open={open}
       onClose={close}
-      title={`Use “${template.name}”`}
-      subtitle={template.description}
+      wide
+      title="Compare layouts with your content"
+      subtitle="Preview up to three candidates before applying. Your current signature stays unchanged while you compare."
       testId="apply-template"
       footer={
         <>
@@ -65,11 +75,20 @@ export function ApplyTemplateDialog() {
             Cancel
           </button>
           <button className="btn primary" onClick={apply} data-testid="apply-template-confirm">
-            Apply layout
+            Apply {template.name}
           </button>
         </>
       }
     >
+      <Segmented label="Template preview variant" value={variant} onChange={setVariant} options={[{value:"full",label:"Full"},{value:"reply",label:"Reply"}]} />
+      <div className="preview-grid audition-grid">
+        <PreviewFrame project={project!} title="Current signature" variant={variant} />
+        {candidates.map(c => <div key={c.template.id} className={c.template.id === template.id ? "candidate chosen" : "candidate"}>
+          <PreviewFrame project={c.project} title={c.template.name} variant={variant}/>
+          <button className="btn small" aria-pressed={c.template.id === template.id} onClick={() => useEditor.getState().openDialog("applyTemplate",c.template.id)}>{c.template.id === template.id ? "Selected layout" : "Choose this layout"}</button>
+        </div>)}
+      </div>
+      <p className="hint">Width badges flag overflow for this content. Shortlist layouts in the Layouts panel to compare different styles. Extras appear in each candidate when kept.</p>
       <ul className="readiness">
         <li>
           <span className="what">
@@ -335,6 +354,7 @@ export function VersionsDialog() {
   const toast = useEditor((s) => s.toast);
   const [list, setList] = useState<ProjectVersion[]>([]);
   const [label, setLabel] = useState("");
+  const [comparing, setComparing] = useState<string | null>(null);
   const refresh = () => project && versionStore.list(project.id).then(setList);
   useEffect(() => {
     if (open) void refresh();
@@ -342,7 +362,7 @@ export function VersionsDialog() {
   }, [open, project?.id]);
   if (!project) return null;
   return (
-    <Modal open={open} onClose={close} title="History" subtitle="Named versions and automatic snapshots, stored in this browser.">
+    <Modal open={open} wide onClose={close} title="History" subtitle="Compare a saved version with your current design before restoring. Stored in this browser.">
       <div className="row" style={{ alignItems: "flex-end", marginBottom: 12 }}>
         <div style={{ flex: 1 }}>
           <TextInput label="Name this version" value={label} placeholder="e.g. Before rebrand" onChange={setLabel} />
@@ -388,12 +408,14 @@ export function VersionsDialog() {
             >
               <RotateCcw size={13} /> Restore
             </button>
+            <button className="btn small" aria-pressed={comparing===v.id} onClick={async()=>{await hydrateSources(Object.keys(v.project.assets));setComparing(comparing===v.id ? null : v.id);}}>Compare version</button>
             <button className="icon-btn small" aria-label={`Delete ${v.label}`} onClick={() => versionStore.remove(project.id, v.id).then(refresh)}>
               <Trash2 size={13} />
             </button>
           </li>
         ))}
       </ul>
+      {list.find(v=>v.id===comparing) && <div className="preview-grid"><PreviewFrame project={project} title="Current design"/><PreviewFrame project={list.find(v=>v.id===comparing)!.project} title={list.find(v=>v.id===comparing)!.label}/></div>}
     </Modal>
   );
 }

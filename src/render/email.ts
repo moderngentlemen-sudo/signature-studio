@@ -208,7 +208,7 @@ function annotate(html: string, attrs: string): string {
 
 function nodeAttrs(ctx: Ctx, node: SigNode, ghost: boolean): string {
   if (!ctx.edit) return "";
-  return `data-ss-id="${node.id}" data-ss-type="${node.type}"${ghost ? ' data-ss-ghost="1"' : ""}${node.locked ? ' data-ss-locked="1"' : ""}`;
+  return `data-ss-id="${esc(node.id)}" data-ss-type="${esc(node.type)}"${ghost ? ' data-ss-ghost="1"' : ""}${node.locked ? ' data-ss-locked="1"' : ""}`;
 }
 
 function borderCss(ctx: Ctx, box: BoxStyle): Record<string, string | undefined> {
@@ -409,7 +409,7 @@ function renderRow(ctx: Ctx, node: RowNode, inh: Inherited): string {
 }
 
 function editTextAttr(ctx: Ctx, nodeId: string): string {
-  return ctx.edit ? ` data-ss-text="${nodeId}"` : "";
+  return ctx.edit ? ` data-ss-text="${esc(nodeId)}"` : "";
 }
 
 function renderField(ctx: Ctx, node: FieldNode, inh: Inherited): string {
@@ -574,6 +574,7 @@ function renderImage(ctx: Ctx, node: ImageNode, inh: Inherited): string {
   const width = Math.min(px(ctx, p.width), Math.floor(inh.avail));
   if (!meta || !p.assetId) {
     if (!ctx.edit) {
+      if (p.assetId && ctx.opts.mode === "email") ctx.issues.push({ level: "error", nodeId: node.id, message: "An image source is missing. Replace or re-import it before installing." });
       return "";
     }
     const h = Math.round(width / (p.aspect ?? (p.role === "banner" ? 4 : p.role === "headshot" ? 1 : 2.4)));

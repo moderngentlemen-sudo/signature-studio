@@ -3,8 +3,9 @@
  * shortcuts. Each command is one undoable step.
  */
 import { column, row } from "../model/factory";
-import { canContain, cloneWithNewIds, duplicateNode, findNode, groupNode, isContainer, locate, moveNode, removeNode, ungroupNode } from "../model/tree";
-import type { SigNode, StackNode, Visibility } from "../model/types";
+import { canContain, cloneWithNewIds, duplicateNode, findNode, groupNode, isAncestor, isContainer, locate, moveNode, pathTo, removeNode, ungroupNode } from "../model/tree";
+import { groupMany, selectedNodes } from "./studio";
+import type { AssetMeta, SigNode, StackNode, Visibility } from "../model/types";
 import { useEditor } from "../state/store";
 
 export type DropTarget =
@@ -36,7 +37,7 @@ export function defaultInsertTarget(): DropTarget {
 function place(root: StackNode, node: SigNode, target: DropTarget): boolean {
   if (target.kind === "insert") {
     const parent = findNode(root, target.parentId);
-    if (!parent || !isContainer(parent)) return false;
+    if (!parent || !isContainer(parent) || pathTo(root, parent.id).some(n => n.locked)) return false;
     // Dropping a non-column into a row creates a new column for it.
     if (parent.type === "row" && node.type !== "column") {
       parent.children.splice(target.index, 0, column([node]));
@@ -47,7 +48,7 @@ function place(root: StackNode, node: SigNode, target: DropTarget): boolean {
     return true;
   }
   const loc = locate(root, target.targetId);
-  if (!loc || !loc.parent || node.type === "column") return false;
+  if (!loc || !loc.parent || node.type === "column" || pathTo(root, loc.node.id).some(n => n.locked)) return false;
   if (loc.parent.type === "column") {
     // Already in columns: add a sibling column next to the containing column.
     const colLoc = locate(root, loc.parent.id);
@@ -61,17 +62,28 @@ function place(root: StackNode, node: SigNode, target: DropTarget): boolean {
   return true;
 }
 
-export function insertNode(node: SigNode, target: DropTarget = defaultInsertTarget()) {
+export function insertNode(node: SigNode, target: DropTarget = defaultInsertTarget(), assets: Record<string, AssetMeta> = {}) {
   const fresh = cloneWithNewIds(node);
   let ok = false;
   st().edit((d) => {
     ok = place(d.root as StackNode, fresh, target);
+    if (ok) Object.assign(d.assets, assets);
   });
   if (ok) st().select(fresh.id);
   return ok ? fresh.id : null;
 }
 
 export function moveTo(id: string, target: DropTarget) {
+  const project = st().project;
+  if (!project || id === project.root.id || (target.kind === "beside" && (target.targetId === id || isAncestor(project.root, id, target.targetId))) || (target.kind === "insert" && (target.parentId === id || isAncestor(project.root, id, target.parentId)))) return false;
+  const source = locate(project.root, id);
+  if (!source?.parent || pathTo(project.root, id).some(n => n.locked)) return false;
+  const targetId = target.kind === "insert" ? target.parentId : target.targetId;
+  if (pathTo(project.root, targetId).some(n => n.locked)) return false;
+  if (target.kind === "beside") {
+    const destination = locate(project.root, target.targetId);
+    if (!destination?.parent || source.node.type === "column" || destination.parent.type === "row") return false;
+  }
   let ok = false;
   const sourceParent = locate(st().project!.root, id)?.parent?.id ?? null;
   st().edit((d) => {
@@ -116,37 +128,52 @@ function cleanupEmptiedColumn(columnId: string) {
 }
 
 export function removeSelected() {
-  const { selection, project } = st();
-  if (!selection || !project || selection === project.root.id) return;
-  const loc = locate(project.root, selection);
-  if (!loc || loc.node.locked) return;
-  const next = loc.parent ? ((loc.parent.children as SigNode[])[loc.index + 1] ?? (loc.parent.children as SigNode[])[loc.index - 1] ?? loc.parent) : null;
-  st().edit((d) => void removeNode(d.root as StackNode, selection));
-  st().select(next && next.id !== project.root.id ? next.id : null);
-  st().toast("Component removed", "info", { label: "Undo", run: () => st().undo() });
+  const nodes = selectedNodes();
+  if (!nodes.length) return;
+  st().edit(d => { nodes.forEach(n => removeNode(d.root, n.id)); });
+  st().select(null);
+  st().toast(`${nodes.length} component(s) removed`, "info", { label: "Undo", run: () => st().undo() });
 }
 
 export function duplicateSelected() {
-  const { selection, project } = st();
-  if (!selection || !project || selection === project.root.id) return;
-  let copy: string | null = null;
-  st().edit((d) => void (copy = duplicateNode(d.root as StackNode, selection)));
-  if (copy) st().select(copy);
+  const nodes = selectedNodes();
+  const copies: string[] = [];
+  st().edit(d => { nodes.forEach(n => { const id = duplicateNode(d.root, n.id); if (id) copies.push(id); }); });
+  st().selectMany(copies);
 }
 
 export function nudgeOrder(delta: -1 | 1) {
+  if (st().selections.length > 1) {
+    const nodes = selectedNodes();
+    if (!nodes.length || !st().project) return;
+    const locs = nodes.map(n => locate(st().project!.root, n.id)!);
+    const parent = locs[0].parent;
+    if (!parent || locs.some(l => l.parent?.id !== parent.id)) { st().toast("Choose components in the same section to reorder together.", "info"); return; }
+    const indices = locs.map(l => l.index);
+    if (indices.some(i => i + delta < 0 || i + delta >= parent.children.length)) return;
+    const ids = new Set(nodes.map(n => n.id));
+    st().edit(d => {
+      const p = findNode(d.root, parent.id);
+      if (!p || !isContainer(p)) return;
+      const kids = p.children as SigNode[];
+      const order = delta < 0 ? [...indices] : [...indices].reverse();
+      for (const i of order) { if (!ids.has(kids[i + delta].id)) [kids[i], kids[i + delta]] = [kids[i + delta], kids[i]]; }
+    }); return;
+  }
   const { selection, project } = st();
   if (!selection || !project) return;
   const loc = locate(project.root, selection);
   if (!loc?.parent) return;
+  if (pathTo(project.root, selection).some(n => n.locked)) return;
   const to = loc.index + delta;
   if (to < 0 || to >= loc.parent.children.length) return;
   st().edit((d) => void moveNode(d.root as StackNode, selection, loc.parent!.id, delta > 0 ? to + 1 : to));
 }
 
 export function groupSelected() {
+  if (st().selections.length > 1) return groupMany();
   const { selection } = st();
-  if (!selection) return;
+  if (!selection || !selectedNodes().length) return;
   let g: string | null = null;
   st().edit((d) => void (g = groupNode(d.root as StackNode, selection)));
   if (g) st().select(g);
@@ -156,7 +183,7 @@ export function ungroupSelected() {
   const { selection, project } = st();
   if (!selection || !project) return;
   const node = findNode(project.root, selection);
-  if (node?.type !== "stack" || selection === project.root.id) return;
+  if (node?.type !== "stack" || selection === project.root.id || pathTo(project.root, selection).some(n => n.locked)) return;
   const first = node.children[0]?.id ?? null;
   st().edit((d) => void ungroupNode(d.root as StackNode, selection));
   st().select(first);
@@ -193,4 +220,27 @@ export function updateNode<T extends SigNode>(id: string, recipe: (n: T) => void
     },
     key ? `${id}:${key}` : undefined,
   );
+}
+
+/** Move a normalized selection atomically. Reject invalid targets before removal. */
+export function moveSelectionTo(id: string, target: DropTarget) {
+  const state = st();
+  if (!state.selections.includes(id) || state.selections.length < 2) return moveTo(id, target);
+  const project = state.project;
+  if (!project) return false;
+  const nodes = selectedNodes(project);
+  if (nodes.length !== state.selections.length || target.kind !== "insert") { state.toast("Drop the selection into a section or between layers.", "info"); return false; }
+  const parent = findNode(project.root, target.parentId);
+  if (!parent || !isContainer(parent) || pathTo(project.root, parent.id).some(n => n.locked) || nodes.some(n => n.id === parent.id || isAncestor(project.root, n.id, parent.id) || (parent.type !== "row" && !canContain(parent, n)))) return false;
+  let index = target.index;
+  for (const n of nodes) { const loc = locate(project.root, n.id)!; if (loc.parent?.id === parent.id && loc.index < target.index) index--; }
+  const sourceParents = nodes.map(n => locate(project.root, n.id)?.parent?.id).filter((x): x is string => !!x);
+  state.edit(d => {
+    const moved = nodes.map(n => removeNode(d.root, n.id)!);
+    const dest = findNode(d.root, parent.id)!;
+    if (isContainer(dest)) (dest.children as SigNode[]).splice(Math.max(0, index), 0, ...moved.map(n => dest.type === "row" && n.type !== "column" ? column([n]) : n));
+  });
+  sourceParents.forEach(cleanupEmptiedColumn);
+  state.selectMany(nodes.map(n => n.id));
+  return true;
 }

@@ -5,7 +5,7 @@
  * for cloud sync (Phase 5).
  */
 import { createStore, del, entries, get, set, type UseStore } from "idb-keyval";
-import type { Project, SigNode, ThemeColors } from "../model/types";
+import type { AssetMeta, Project, SigNode, ThemeColors } from "../model/types";
 
 let stores: { projects: UseStore; assets: UseStore; library: UseStore; versions: UseStore } | null = null;
 
@@ -63,6 +63,8 @@ export interface SavedComponent {
   name: string;
   node: SigNode;
   createdAt: number;
+  assets?: Record<string, AssetMeta>;
+  sources?: Record<string, string>;
 }
 
 export interface BrandKit {

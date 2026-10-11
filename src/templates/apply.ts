@@ -50,7 +50,7 @@ function collect(root: StackNode, templateId: string | undefined) {
   const custom: SigNode[] = [];
   walk(root, ({ node }) => {
     if (node.type === "image" && node.props.assetId) images.push(node);
-    else if (CUSTOM_TYPES.has(node.type) && !stock.has(contentSignature(node))) custom.push(node);
+    else if ((node.type === "field" && node.props.detached) || (CUSTOM_TYPES.has(node.type) && !stock.has(contentSignature(node)))) custom.push(node);
   });
   return { images, custom };
 }
@@ -75,7 +75,7 @@ function plan(project: Project, template: Template) {
       walk(next, ({ node: n }) => {
         if (!slot && n.type === node.type && n.name === node.name) slot = n;
       });
-    if (slot) Object.assign(slot as SigNode, { props: deepClone(node.props), visibility: node.visibility });
+    if (slot && node.type !== "field") Object.assign(slot as SigNode, { props: deepClone(node.props), visibility: node.visibility });
     else custom.push(node);
   }
   const byRole = new Map<ImageRole, ImageNode[]>();

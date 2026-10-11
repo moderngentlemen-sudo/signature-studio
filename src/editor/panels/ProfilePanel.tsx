@@ -223,6 +223,7 @@ export function ProfilePanel() {
           Identity & contact
         </h3>
         <ProfileFields />
+        <button className="btn small" onClick={() => useEditor.getState().openDialog("contactImport")}>Import contact details</button>
         <h3 className="hint" style={{ textTransform: "uppercase", letterSpacing: ".08em", fontWeight: 600, margin: "18px 0 10px" }}>
           Custom fields
         </h3>

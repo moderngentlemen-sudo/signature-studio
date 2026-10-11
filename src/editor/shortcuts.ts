@@ -18,6 +18,7 @@ export function useShortcuts() {
       const mod = e.metaKey || e.ctrlKey;
       const k = e.key.toLowerCase();
       const dialogOpen = !!st.dialog;
+      if (dialogOpen || e.defaultPrevented) return;
 
       if (mod && k === "z" && !isTyping(e)) {
         e.preventDefault();
@@ -30,7 +31,9 @@ export function useShortcuts() {
         st.redo();
         return;
       }
-      if (dialogOpen || isTyping(e)) return;
+      if (dialogOpen || isTyping(e) || e.defaultPrevented) return;
+      // Preserve native activation on toolbar controls and layer rows.
+      if ((e.key === "Enter" || e.key === " ") && (e.composedPath()[0] as HTMLElement)?.closest("button,a,[role=button],[role=treeitem]")) return;
 
       if (mod && (k === "=" || k === "+")) {
         e.preventDefault();
@@ -50,6 +53,11 @@ export function useShortcuts() {
       if (mod && k === "d") {
         e.preventDefault();
         duplicateSelected();
+        return;
+      }
+      if (mod && k === "a") {
+        e.preventDefault();
+        st.selectMany(st.project.root.children.map(n => n.id));
         return;
       }
       if (mod && k === "g") {

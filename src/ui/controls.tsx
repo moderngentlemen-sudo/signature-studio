@@ -276,7 +276,7 @@ export function Modal(props: {
     <dialog
       ref={ref}
       className={`modal${props.wide ? " wide" : ""}`}
-      onClose={props.onClose}
+      onClose={() => { if (props.open) props.onClose(); }}
       onCancel={(e) => {
         e.preventDefault();
         props.onClose();

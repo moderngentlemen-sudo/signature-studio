@@ -60,7 +60,7 @@ export function TopBar() {
   return (
     <header className="topbar">
       <div className="brand">
-        <span className="brand-mark" aria-hidden>
+        <span className="brand-mark" aria-hidden title="Signature Studio 3.0">
           <svg width="18" height="18" viewBox="0 0 32 32">
             <path d="M6 22c4-10 7-14 10-14s-2 12 1.5 12 4-6 8.5-6" stroke="#c9a46a" strokeWidth="2.6" fill="none" strokeLinecap="round" />
           </svg>
@@ -109,8 +109,10 @@ export function TopBar() {
         ]}
       />
       <span className="spacer" />
+      <button className="btn small studio-tool" aria-label="Preview lab" title="Preview lab" onClick={() => openDialog("previewLab")}><Eye size={14}/><span>Preview lab</span></button>
+      <button className="btn small studio-tool desktop-only" aria-label="Fix layout" title="Fix layout" onClick={() => openDialog("layoutFix")}><Wand2 size={14}/><span>Fix layout</span></button>
       <button
-        className="icon-btn"
+        className="icon-btn canvas-preview"
         aria-label={preview ? "Exit preview" : "Preview"}
         title="Preview (P)"
         aria-pressed={preview}
@@ -187,7 +189,7 @@ export function StatusBar() {
   const variant = useEditor((s) => s.variant);
   const sheet = useEditor((s) => s.mobileSheet);
   const set = useEditor((s) => s.set);
-  const checks = useMemo(() => (project ? designChecks(project, measured) : []), [project, measured]);
+  const checks = useMemo(() => (project ? designChecks(project, measured, variant) : []), [project, measured, variant]);
   const readiness = useMemo(() => (project ? emailHtml(project, variant) : null), [project, variant]);
   if (!project) return <footer className="statusbar" />;
   const warnings = checks.filter((c) => c.level === "warning");
@@ -218,13 +220,9 @@ export function StatusBar() {
       {over && (
         <button
           className="btn small ghost desktop-only"
-          onClick={async () => {
-            const { autoFit } = await import("./assist");
-            const r = await autoFit();
-            useEditor.getState().toast(r.message, r.ok ? "success" : "info");
-          }}
+          onClick={() => useEditor.getState().openDialog("layoutFix")}
         >
-          <Wand2 size={12} /> Auto-fit
+          <Wand2 size={12} /> Fix layout
         </button>
       )}
       {TEST_HOST_ENABLED && (

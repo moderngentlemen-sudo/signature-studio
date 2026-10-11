@@ -34,12 +34,15 @@ import { applyCompactReply, autoFit } from "./assist";
 import { ACCEPT_ATTR, ingestFile, sourceUrl, UploadError } from "../state/assets";
 import { column } from "../model/factory";
 import { saveComponent } from "./library";
+import { BulkInspector } from "./BulkInspector";
 
 export function Inspector() {
   const selection = useEditor((s) => s.selection);
   const project = useEditor((s) => s.project);
+  const selections = useEditor((s) => s.selections);
   const node = useMemo(() => (project && selection ? findNode(project.root, selection) : null), [project, selection]);
   if (!project) return null;
+  if (selections.length > 1) return <BulkInspector />;
   if (!node || node.id === project.root.id) return <DocumentInspector />;
   return <NodeInspector node={node} key={node.id} />;
 }

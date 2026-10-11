@@ -6,6 +6,7 @@ import { DragGhost, Rail, StatusBar, Toasts, TopBar, useMobileSheetSync } from "
 import { Onboarding } from "./editor/Onboarding";
 import { InstallDialog } from "./editor/dialogs/InstallDialog";
 import { ImageDialog } from "./editor/dialogs/ImageDialog";
+import { ContactImportDialog, LayoutFixDialog, PreviewLabDialog } from "./editor/dialogs/StudioDialogs";
 import { ApplyTemplateDialog, ExportDialog, ProjectsDialog, SettingsDialog, ShortcutsDialog, VersionsDialog } from "./editor/dialogs/ProjectDialogs";
 import { useShortcuts } from "./editor/shortcuts";
 import { loadPrefs } from "./state/prefs";
@@ -77,6 +78,9 @@ export default function App() {
       <VersionsDialog />
       <SettingsDialog />
       <ShortcutsDialog />
+      <LayoutFixDialog />
+      <PreviewLabDialog />
+      <ContactImportDialog />
       <Toasts />
       <DragGhost />
     </div>

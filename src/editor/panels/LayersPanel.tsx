@@ -61,9 +61,9 @@ export function LayersPanel() {
     <>
       <div className="panel-head">
         <h2>Layers</h2>
-        <p>Drag to reorder. Alt+↑/↓ moves the selection.</p>
+        <p>Shift-click to select several. Drag or use Alt+↑/↓ to reorder.</p>
       </div>
-      <ul className="layers" role="tree" aria-label="Signature layers" ref={listRef}>
+      <ul className="layers" role="tree" aria-multiselectable="true" aria-label="Signature layers" ref={listRef}>
         <LayerRow node={project.root} depth={0} collapsed={collapsed} onToggle={toggle} isRoot />
       </ul>
     </>
@@ -83,7 +83,7 @@ function LayerRow({
   onToggle: (id: string) => void;
   isRoot?: boolean;
 }) {
-  const selected = useEditor((s) => s.selection === node.id);
+  const selected = useEditor((s) => s.selections.includes(node.id));
   const variant = useEditor((s) => s.variant);
   const indicator = useDrag((s) => (s.resolution?.indicator.layer?.id === node.id ? s.resolution.indicator.layer.pos : null));
   const [renaming, setRenaming] = useState(false);
@@ -107,7 +107,8 @@ function LayerRow({
         tabIndex={selected ? 0 : -1}
         onPointerDown={(e) => {
           if (e.button !== 0 || (e.target as HTMLElement).closest("button,input")) return;
-          useEditor.getState().select(node.id);
+          if (e.shiftKey || e.metaKey || e.ctrlKey) { useEditor.getState().select(node.id, true); return; }
+          if (!useEditor.getState().selections.includes(node.id)) useEditor.getState().select(node.id);
           if (!isRoot && !node.locked) armDrag(e, { kind: "move", nodeId: node.id }, nodeLabel(node));
         }}
         onDoubleClick={() => !isRoot && setRenaming(true)}
@@ -117,6 +118,7 @@ function LayerRow({
           if (e.key === "ArrowLeft" && kids.length && open) onToggle(node.id);
         }}
       >
+        {!isRoot && <input type="checkbox" aria-label={`Select ${nodeLabel(node)}`} checked={selected} onChange={() => useEditor.getState().select(node.id, true)} style={{ margin: 0, width: 12, accentColor: "var(--brass)" }} />}
         {kids.length ? (
           <button className="twisty" aria-label={open ? "Collapse" : "Expand"} onClick={() => onToggle(node.id)}>
             {open ? <ChevronDown size={12} /> : <ChevronRight size={12} />}

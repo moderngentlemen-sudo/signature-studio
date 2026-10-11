@@ -9,7 +9,7 @@ import type { Project, SigNode, StackNode, Variant, Visibility } from "../model/
 import { sourceUrl, onSourcesChange } from "../state/assets";
 import { armDrag, registerResolver, useDrag, type Resolution } from "./dnd";
 import { duplicateSelected, nudgeOrder, removeSelected, selectParent, setVisibility, toggleLock } from "./actions";
-import { fieldValue } from "../model/profile";
+import { fieldDisplay, fieldValue } from "../model/profile";
 
 const VIS_CYCLE: Visibility[] = ["both", "full", "reply", "hidden"];
 
@@ -341,10 +341,11 @@ function Stage({ html, project, interactive }: { html: string; project: Project;
     e.stopPropagation();
     if (!el) return st.select(null);
     const id = el.dataset.ssId!;
-    st.select(id);
+    if (e.shiftKey || e.metaKey || e.ctrlKey) { st.select(id, true); return; }
+    if (!st.selections.includes(id)) st.select(id);
     const proj = st.project!;
     const node = findNode(proj.root, id);
-    if (!node || id === proj.root.id || node.locked) return;
+    if (!node || id === proj.root.id || pathTo(proj.root, id).some(n => n.locked)) return;
     armDrag(e, { kind: "move", nodeId: id }, nodeLabel(node));
   };
 
@@ -371,6 +372,7 @@ function Stage({ html, project, interactive }: { html: string; project: Project;
         onDoubleClick={onDoubleClick}
         onPointerMove={onPointerMove}
         onPointerLeave={() => useEditor.getState().set({ hover: null })}
+        onClick={(e) => { if (interactive && e.nativeEvent.composedPath().some(el => (el as HTMLElement).tagName === "A")) e.preventDefault(); }}
       />
       {interactive && <Overlay project={project} tick={tick} boxOf={boxOf} elFor={elFor} editing={!!editingText} />}
     </div>
@@ -412,6 +414,7 @@ function resolveDrop(
     }
     if (!kids.length) return { target: { kind: "insert", parentId: c.id, index: 0 }, indicator: canvas(undefined, box) };
     const boxes = kids.map((k) => ({ k, b: boxFor(k.id) })).filter((x) => x.b) as { k: SigNode; b: Box }[];
+    if (!boxes.length) return { target: { kind: "insert", parentId: c.id, index: c.children.length }, indicator: canvas(undefined, box) };
     let index = boxes.length;
     for (let i = 0; i < boxes.length; i++)
       if (py < boxes[i].b.y + boxes[i].b.h / 2) {
@@ -457,13 +460,14 @@ function startInlineEdit(span: HTMLElement) {
   const st = useEditor.getState();
   const id = span.dataset.ssText!;
   const node = findNode(st.project!.root, id);
-  if (!node || node.locked) return;
+  if (!node || pathTo(st.project!.root, id).some(n => n.locked)) return;
   if (node.type === "field" && node.props.format) return;
   const original = span.textContent ?? "";
   // Show the real value (not the placeholder) when the field is empty.
   if (node.type === "field" && !node.props.detached && !fieldValue(st.project!.profile, node.props.field)) span.textContent = "";
   if ((node.type === "text" || node.type === "badge") && !node.props.text) span.textContent = "";
-  st.set({ editingText: id, selection: id });
+  st.select(id);
+  st.set({ editingText: id });
   span.contentEditable = "true";
   span.spellcheck = true;
   span.focus();
@@ -511,10 +515,13 @@ function startInlineEdit(span: HTMLElement) {
   span.addEventListener("paste", onPaste);
 }
 
-function applyInlineText(id: string, value: string) {
+export function applyInlineText(id: string, value: string) {
   const st = useEditor.getState();
   const node = findNode(st.project!.root, id);
   if (!node) return;
+  // Website display text deliberately omits protocol/www; a no-op edit
+  // must not replace the actual link target with its display representation.
+  if (node.type === "field" && !node.props.detached && value === fieldDisplay(st.project!.profile, node.props.field)) return;
   st.edit((d) => {
     const n = findNode(d.root as StackNode, id);
     if (!n) return;
@@ -543,6 +550,7 @@ interface OverlayProps {
 
 function Overlay({ project, tick, boxOf, elFor, editing }: OverlayProps) {
   const selection = useEditor((s) => s.selection);
+  const selections = useEditor((s) => s.selections);
   const hover = useEditor((s) => s.hover);
   const zoom = useEditor((s) => s.zoom);
   const resolution = useDrag((s) => s.resolution);
@@ -641,13 +649,14 @@ function Overlay({ project, tick, boxOf, elFor, editing }: OverlayProps) {
   }
 
   const ind = resolution?.indicator.surface === "canvas" ? resolution.indicator : null;
-  const locked = !!selNode?.locked;
+  const locked = !!selNode && pathTo(root, selNode.id).some(n => n.locked);
   const isRoot = selection === root.id;
 
   return (
     <div className="overlay" aria-hidden="false">
       {measured > 0 && <div className={`target-line${measured > targetX + 1 ? " over" : ""}`} style={{ left: targetX }} title={`Target width ${targetX}px`} />}
       {hoverBox && <div className="ov-box ov-hover" style={pos(hoverBox)} />}
+      {selections.filter(id => id !== selection).map(id => { const box = boxOf(elFor(id)); return box ? <div key={id} className="ov-box ov-select" style={pos(box)} /> : null; })}
       {parentBox && !dragging && <div className="ov-box ov-parent" style={pos(parentBox)} />}
       {selBox && selNode && (
         <div className="ov-box ov-select" style={pos(selBox)} data-testid="selection-box">

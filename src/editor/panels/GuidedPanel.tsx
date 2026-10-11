@@ -10,6 +10,8 @@ import { ACCEPT_ATTR, ingestFile, sourceUrl, UploadError } from "../../state/ass
 import { BUILTINS } from "../../model/builtins";
 import { suggestAlt } from "../Inspector";
 import { nameOf } from "../../model/profile";
+import { button, image, social } from "../../model/factory";
+import { insertNode } from "../actions";
 
 const ROLE_LABEL: Record<string, string> = { logo: "Logo", headshot: "Headshot", partner: "Partner logo", banner: "Banner", artwork: "Image" };
 
@@ -58,6 +60,7 @@ export function GuidedPanel() {
       <div className="panel-pad">
         <Step n={1} title="Your details" sub="Name, role and how to reach you" done={done[1]} open={open === 1} onOpen={() => setOpen(1)}>
           <ProfileFields keys={["fullName", "title", "company", "phone", "email", "website"]} />
+          <button className="btn small" onClick={() => openDialog("contactImport")}>Import contact details</button>
           <button className="btn small" onClick={() => setOpen(2)}>
             Next: style
           </button>
@@ -84,13 +87,14 @@ export function GuidedPanel() {
           open={open === 3}
           onOpen={() => setOpen(3)}
         >
-          {images.length === 0 && <p className="hint">Choose a layout with a logo or headshot in Style, or add an image from Advanced mode.</p>}
+          <div className="button-wrap"><button className="btn small" onClick={() => insertNode(image("logo"))}>Add logo</button><button className="btn small" onClick={() => insertNode(image("headshot"))}>Add photo</button></div>
           {images.map((img) => (
             <ImageSlot key={img.id} node={img} />
           ))}
         </Step>
         <Step n={4} title="Social links" sub="Optional" done={done[4]} open={open === 4} onOpen={() => setOpen(4)}>
           <SocialEditor />
+          <div className="button-wrap"><button className="btn small" onClick={() => insertNode(social())}>Add social block</button><button className="btn small" onClick={() => insertNode(button("Book a meeting", {field:"booking"}))}>Add booking button</button></div>
         </Step>
         <button className="btn brass block" style={{ height: 40, marginTop: 6 }} onClick={() => openDialog("install")}>
           <Send size={15} /> Install in Gmail

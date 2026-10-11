@@ -1,4 +1,8 @@
-# Signature Studio 2.0
+# Signature Studio 3.0
+
+The 3.0 editor preview adds template comparison with real content, reviewable layout repairs, multi-selection editing, expanded preview diagnostics, and reviewed contact import. See [the implementation plan](docs/SIGNATURE_STUDIO_3_PLAN.md) for release gates and the complete roadmap.
+
+To run the focused browser checks, start the development server on port 5182 and run `node scripts/verify-studio3.mjs`. Set `BROWSER_EXECUTABLE_PATH` when using a system browser and `QA_OUTPUT` to save a screenshot and results. Unit tests also run with `npm test -- --pool=threads` where process isolation prevents access to temporary caches.
 
 A premium email-signature design studio with **Gmail installation that actually works**. You design once and get a Full signature and a Reply signature. Every image is published to a verified public URL before you are allowed to copy.
 

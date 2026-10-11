@@ -229,6 +229,8 @@ export function AssetsPanel() {
   const toast = useEditor((s) => s.toast);
   const fileRef = useRef<HTMLInputElement>(null);
   const replaceFor = useRef<string | null>(null);
+  const [search, setSearch] = useState("");
+  const [dark, setDark] = useState(false);
 
   const usage = useMemo(() => {
     const map = new Map<string, number>();
@@ -239,7 +241,7 @@ export function AssetsPanel() {
     return map;
   }, [project.root, project.profile.socials]);
 
-  const assets = Object.values(project.assets).sort((a, b) => b.createdAt - a.createdAt);
+  const assets = Object.values(project.assets).filter(a=>a.name.toLowerCase().includes(search.trim().toLowerCase())).sort((a, b) => b.createdAt - a.createdAt);
 
   return (
     <>
@@ -257,6 +259,8 @@ export function AssetsPanel() {
         >
           <Upload size={14} /> Upload image
         </button>
+        <input className="input" style={{marginTop:12}} placeholder="Search image names" aria-label="Search images" value={search} onChange={e=>setSearch(e.target.value)}/>
+        <button className="btn small" style={{marginTop:8}} aria-pressed={dark} onClick={()=>setDark(!dark)}>Inspect on {dark ? "light" : "dark"} background</button>
         <div style={{ display: "grid", gap: 8, marginTop: 12 }}>
           {assets.length === 0 && (
             <div className="empty">
@@ -269,7 +273,7 @@ export function AssetsPanel() {
             const meta = assetMeta(project, a.id)!;
             return (
               <div key={a.id} className="contact-item" style={{ padding: 8 }}>
-                <div className="asset-tile" style={{ width: 48, height: 48, padding: 4, cursor: "default" }}>
+                <div className="asset-tile" style={{ width: 48, height: 48, padding: 4, cursor: "default", background:dark ? "#202124" : "#ffffff" }}>
                   <img src={sourceUrl(a.id) ?? ""} alt="" />
                 </div>
                 <div className="grow" style={{ minWidth: 0 }}>

@@ -21,6 +21,7 @@ export function TemplateGrid({
   const project = useEditor((s) => (previewProfile ? null : s.project));
   const favorites = usePrefs((s) => s.favorites);
   const recent = usePrefs((s) => s.recent);
+  const shortlist = useEditor(s => s.templateCandidates);
   const [query, setQuery] = useState("");
   const [filter, setFilter] = useState<string>("All");
   const imagesKey = useMemo(() => (project ? imagesKeyOf(project.root) : undefined), [project]);
@@ -100,6 +101,11 @@ export function TemplateGrid({
                 </div>
               </div>
             </button>
+            {project && <label className="shortlist-control"><input type="checkbox" aria-label={`Compare ${t.name}`} checked={shortlist.includes(t.id)} onChange={() => {
+              const st = useEditor.getState();
+              if (!shortlist.includes(t.id) && shortlist.length >= 3) { st.toast("Compare up to three layouts. Remove one to add another.", "info"); return; }
+              st.set({templateCandidates: shortlist.includes(t.id) ? shortlist.filter(id=>id!==t.id) : [...shortlist,t.id]});
+            }}/> Compare</label>}
             <button
               className="icon-btn small fav"
               aria-label={favorites.includes(t.id) ? `Remove ${t.name} from favourites` : `Add ${t.name} to favourites`}
@@ -117,6 +123,7 @@ export function TemplateGrid({
 
 export function TemplatesPanel() {
   const openDialog = useEditor((s) => s.openDialog);
+  const shortlist = useEditor(s => s.templateCandidates);
   return (
     <>
       <div className="panel-head">
@@ -124,6 +131,7 @@ export function TemplatesPanel() {
         <p>Layouts keep your details, images and custom work.</p>
       </div>
       <div className="panel-pad">
+        {!!shortlist.length && <button className="btn primary" style={{marginBottom:12}} onClick={()=>openDialog("applyTemplate",shortlist[0])}>Compare {shortlist.length} selected layouts</button>}
         <TemplateGrid onPick={(t) => openDialog("applyTemplate", t.id)} />
       </div>
     </>

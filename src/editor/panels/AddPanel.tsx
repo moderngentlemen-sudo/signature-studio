@@ -8,7 +8,6 @@ import { importComponents, removeComponent, useLibrary } from "../library";
 import { useEditor } from "../../state/store";
 import { downloadFile } from "../../lib/download";
 import type { SavedComponent } from "../../storage/db";
-import { nodeSchema } from "../../model/schema";
 
 export function AddPanel() {
   const [query, setQuery] = useState("");
@@ -80,9 +79,9 @@ export function AddPanel() {
                 try {
                   const data = JSON.parse(await f.text());
                   if (data?.format !== "signature-studio.components" || !Array.isArray(data.components)) throw new Error();
-                  const valid = (data.components as SavedComponent[]).filter(
-                    (c) => c && typeof c.name === "string" && nodeSchema.safeParse(c.node).success && c.node.type !== "column",
-                  );
+                  if (data.components.length > 200 || f.size > 50 * 1024 * 1024) throw new Error();
+                  const valid = data.components as SavedComponent[];
+                  if (!valid.every(c => c && typeof c.name === "string" && c.node?.type !== "column")) throw new Error();
                   const n = await importComponents(valid);
                   toast(`Imported ${n} components`, "success");
                 } catch {
@@ -144,12 +143,12 @@ function SavedItem({ item }: { item: SavedComponent }) {
         title={item.name}
         onPointerDown={(e) => {
           if (e.button !== 0) return;
-          armDrag(e, { kind: "new", create: () => structuredClone(item.node) }, item.name, () => insertNode(structuredClone(item.node)));
+          armDrag(e, { kind: "new", create: () => structuredClone(item.node), assets: item.assets }, item.name, () => insertNode(structuredClone(item.node), undefined, item.assets));
         }}
         onKeyDown={(e) => {
           if (e.key === "Enter" || e.key === " ") {
             e.preventDefault();
-            insertNode(structuredClone(item.node));
+            insertNode(structuredClone(item.node), undefined, item.assets);
           }
         }}
       >

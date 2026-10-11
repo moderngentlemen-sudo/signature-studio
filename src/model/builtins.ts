@@ -10,7 +10,7 @@ export interface BuiltinAsset extends AssetMeta {
 }
 
 /** Built-in brand artwork. Goes through the same publish/verify pipeline as uploads. */
-export const BUILTINS: Record<string, BuiltinAsset> = {
+export const BUILTINS: Record<string, BuiltinAsset> = Object.assign(Object.create(null), {
   "builtin:mg-monogram": {
     id: "builtin:mg-monogram",
     name: "Modern Gentlemen monogram",
@@ -37,11 +37,11 @@ export const BUILTINS: Record<string, BuiltinAsset> = {
     url: mgLogoWide,
     tintable: true,
   },
-};
+});
 
 export function assetMeta(project: Project, id: string | undefined): AssetMeta | BuiltinAsset | null {
   if (!id) return null;
-  return BUILTINS[id] ?? project.assets[id] ?? null;
+  return BUILTINS[id] ?? (Object.hasOwn(project.assets, id) ? project.assets[id] : null);
 }
 
 export function isBuiltin(id: string | undefined): boolean {

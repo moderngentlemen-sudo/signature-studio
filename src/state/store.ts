@@ -7,12 +7,13 @@
 import { create } from "zustand";
 import { produce, type Draft } from "immer";
 import type { Project, Variant } from "../model/types";
+import { findNode, isAncestor } from "../model/tree";
 
 const HISTORY_LIMIT = 200;
 const COALESCE_MS = 900;
 
 export type LeftPanel = "templates" | "add" | "layers" | "profile" | "brand" | "assets";
-export type Dialog = null | "install" | "export" | "projects" | "shortcuts" | "image" | "versions" | "settings" | "applyTemplate";
+export type Dialog = null | "install" | "export" | "projects" | "shortcuts" | "image" | "versions" | "settings" | "applyTemplate" | "layoutFix" | "previewLab" | "contactImport";
 
 export interface Toast {
   id: number;
@@ -24,6 +25,8 @@ export interface Toast {
 export interface EditorState {
   project: Project | null;
   selection: string | null;
+  selections: string[];
+  templateCandidates: string[];
   hover: string | null;
   editingText: string | null;
   variant: Variant;
@@ -56,7 +59,9 @@ export interface EditorState {
   cancelGesture(): void;
   undo(): void;
   redo(): void;
-  select(id: string | null): void;
+  select(id: string | null, additive?: boolean): void;
+  selectMany(ids: string[]): void;
+  rebaseIdentity(id: string, name: string): void;
   set(partial: Partial<EditorState>): void;
   openDialog(dialog: Dialog, arg?: string | null): void;
   toast(message: string, tone?: Toast["tone"], action?: Toast["action"]): void;
@@ -68,6 +73,8 @@ let toastSeq = 0;
 export const useEditor = create<EditorState>((set, get) => ({
   project: null,
   selection: null,
+  selections: [],
+  templateCandidates: [],
   hover: null,
   editingText: null,
   variant: "full",
@@ -92,7 +99,7 @@ export const useEditor = create<EditorState>((set, get) => ({
   measuredWidth: 0,
 
   load(project) {
-    set({ project, selection: null, hover: null, past: [], future: [], lastKey: null, gestureBase: null, saveState: "saved" });
+    set({ project, selection: null, selections: [], editingText: null, hover: null, past: [], future: [], lastKey: null, gestureBase: null, saveState: "saved", measuredWidth: 0, templateCandidates: [] });
   },
 
   edit(recipe, key) {
@@ -140,25 +147,41 @@ export const useEditor = create<EditorState>((set, get) => ({
     const { past, future, project } = get();
     if (!past.length || !project) return;
     // The verified-image cache is not part of design history.
-    const prev = { ...past[past.length - 1], published: project.published };
+    const prev = { ...past[past.length - 1], id: project.id, createdAt: project.createdAt, published: project.published };
     set({ project: prev, past: past.slice(0, -1), future: [project, ...future], lastKey: null, saveState: "unsaved" });
-    const sel = get().selection;
-    if (sel && !JSON.stringify(prev.root).includes(`"${sel}"`)) set({ selection: null });
+    get().selectMany(get().selections.filter(id => !!findNode(prev.root, id)));
   },
 
   redo() {
     const { past, future, project } = get();
     if (!future.length || !project) return;
-    const next = { ...future[0], published: project.published };
+    const next = { ...future[0], id: project.id, createdAt: project.createdAt, published: project.published };
     set({ project: next, past: [...past, project], future: future.slice(1), lastKey: null, saveState: "unsaved" });
+    get().selectMany(get().selections.filter(id => !!findNode(next.root, id)));
   },
 
-  select(id) {
-    if (get().selection !== id) set({ selection: id, editingText: null });
+  select(id, additive = false) {
+    if (!id) return set({ selection: null, selections: [], editingText: null });
+    const ids = additive ? (get().selections.includes(id) ? get().selections.filter(x => x !== id) : [...get().selections, id]) : [id];
+    get().selectMany(ids);
+  },
+
+  selectMany(ids) {
+    const root = get().project?.root;
+    const valid = root ? [...new Set(ids)].filter(id => !!findNode(root, id)) : [];
+    // Parent and child cannot be edited twice in a single bulk operation.
+    const normalized = root ? valid.filter(id => !valid.some(other => other !== id && isAncestor(root, other, id))) : [];
+    set({ selections: normalized, selection: normalized.at(-1) ?? null, editingText: null });
+  },
+
+  rebaseIdentity(id, name) {
+    const rebase = (p: Project) => ({ ...p, id, name });
+    set(s => ({ project: s.project ? rebase(s.project) : null, past: s.past.map(rebase), future: s.future.map(rebase), gestureBase: s.gestureBase ? rebase(s.gestureBase) : null }));
   },
 
   set(partial) {
     set(partial);
+    if ("selection" in partial && !("selections" in partial)) get().select(partial.selection ?? null);
   },
 
   openDialog(dialog, arg = null) {
